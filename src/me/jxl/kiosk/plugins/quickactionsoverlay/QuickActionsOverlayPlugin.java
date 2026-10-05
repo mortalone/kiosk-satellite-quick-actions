@@ -250,7 +250,7 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
     private void pollEntity(String entity) {
         if (entity == null || entity.isEmpty() || host == null) return;
         Map<String, Object> args = new HashMap<>();
-        args.put("entity_id", entity);
+        args.put("entityId", entity);
         host.executeCommand("getHaEntityState", args, (ok, data, error) -> {
             if (!ok || !(data instanceof Map)) return;
             Map<?, ?> m = (Map<?, ?>) data;
