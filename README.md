@@ -83,3 +83,6 @@ Battery outline and fill use the label text color by default. Choose
 or **Battery icon: same color as text (saved)** to return. The choice applies
 to all battery items and survives app restarts. Fill amount and percentage
 remain independent of color.
+
+
+Quick Actions 0.2.6 yields during standalone Party Mode and retains its own visibility afterward.

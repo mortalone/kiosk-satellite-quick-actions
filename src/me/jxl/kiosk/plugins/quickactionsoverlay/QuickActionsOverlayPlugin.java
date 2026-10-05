@@ -273,6 +273,10 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
 
     private boolean overlayActive() {
         if (context != null) {
+            android.content.SharedPreferences party = context.getSharedPreferences("party_mode_presentation", Context.MODE_PRIVATE);
+            if (party.getBoolean("party_fullscreen", false) && party.getLong("party_until_ms", 0) > System.currentTimeMillis()) return false;
+        }
+        if (context != null) {
             android.content.SharedPreferences presentation = context.getSharedPreferences("now_playing_presentation", Context.MODE_PRIVATE);
             if (presentation.getBoolean("party_fullscreen", false) &&
                     presentation.getLong("party_until_ms", 0) > System.currentTimeMillis()) return false;
