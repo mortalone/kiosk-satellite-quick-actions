@@ -15,3 +15,14 @@ Install in **Kiosk Satellite → Plugin Manager → Add plugin** using:
 - Vertical or horizontal rail with six anchor positions.
 
 Example: display `person.malte`, action `script.kald_pa_malte`.
+
+
+## Reordering items
+
+Use **Item order** in the plugin settings. The values are the configured slot
+numbers. For example:
+
+`4,1,2,3,5,6`
+
+shows Item 4 first, followed by Items 1, 2, 3, 5 and 6. You may also enter a
+partial order such as `4,1,2,3`; any omitted slots are appended automatically.
