@@ -17,15 +17,35 @@ Install in **Kiosk Satellite → Plugin Manager → Add plugin** using:
 Example: display `person.malte`, action `script.kald_pa_malte`.
 
 
-## Reordering items
+## Reordering and per-item visibility
 
-Use **Item order** in the plugin settings. The values are the configured slot
-numbers. For example:
+Use **Item order & visibility** in the plugin settings. The part before `#`
+is the display order. For example:
 
 `4,1,2,3,5,6`
 
-shows Item 4 first, followed by Items 1, 2, 3, 5 and 6. You may also enter a
-partial order such as `4,1,2,3`; any omitted slots are appended automatically.
+shows Item 4 first, followed by Items 1, 2, 3, 5 and 6. A partial order such
+as `4,1,2,3` is also valid; omitted slots are appended automatically.
+
+Optional visibility rules go after `#`. Separate rules with semicolons:
+
+`1,2,3,4,5,6 # 1=binary_sensor.motion|Active;3=sensor.lux|Numeric below|30`
+
+Each rule is:
+
+`slot=entity|condition|value`
+
+Examples:
+
+- `1=binary_sensor.presence|Active`
+- `2=binary_sensor.door|Inactive`
+- `3=sensor.lux|Numeric below|30`
+- `4=sensor.temperature|Numeric between|18..24`
+- `5=media_player.stueetagen|State equals|playing`
+- `6=time|Time between|22:00-06:00`
+
+Supported conditions are Active, Inactive, State equals, State not equals,
+Numeric above, Numeric below, Numeric between, and Time between.
 
 
 ## 0.1.2 display improvements
@@ -37,3 +57,11 @@ the secondary state, so a battery state of `91` with unit `%` is shown as
 `91 %`.
 
 The existing **Item order** setting from 0.1.1 remains available.
+
+
+## 0.2.2: manifest-limit fix
+
+Kiosk Satellite allows at most 20 settings per plugin. The six independent
+visibility rules are therefore encoded compactly inside **Item order &
+visibility**, keeping all six display entities, all six separate action
+entities, layout, size, spacing, opacity and labels available.
