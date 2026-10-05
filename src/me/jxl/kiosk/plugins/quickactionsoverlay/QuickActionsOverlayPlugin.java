@@ -199,18 +199,15 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
         opacity = intSetting(values, "opacity", 90, 30, 100);
         showLabels = values.get("showLabels") == null ||
                 Boolean.TRUE.equals(values.get("showLabels"));
-        itemOrder = parseItemOrder(stringSetting(values, "itemOrder"));
+        String itemRules = stringSetting(values, "itemOrder");
+        itemOrder = parseItemOrder(itemRules);
+        parseVisibilityRules(itemRules);
 
         Set<String> wanted = new HashSet<>();
         for (int i = 0; i < ITEM_COUNT; i++) {
             int slot = i + 1;
             displayEntities[i] = stringSetting(values, "item" + slot + "Entity");
             actionEntities[i] = stringSetting(values, "item" + slot + "Action");
-            visibilityEntities[i] = stringSetting(values, "item" + slot + "VisibilityEntity");
-            String condition = stringSetting(values, "item" + slot + "VisibilityCondition");
-            visibilityConditions[i] = condition.isEmpty() ? "Always" : condition;
-            visibilityValues[i] = stringSetting(values, "item" + slot + "VisibilityValue");
-
             // Display and visibility entities need live state. Action-only
             // entities do not: taps can call their service without consuming
             // one of the plugin host's 16 entity subscriptions.
@@ -766,9 +763,78 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
         return Math.round(value * context.getResources().getDisplayMetrics().density);
     }
 
+    private void parseVisibilityRules(String raw) {
+        for (int i = 0; i < ITEM_COUNT; i++) {
+            visibilityEntities[i] = "";
+            visibilityConditions[i] = "Always";
+            visibilityValues[i] = "";
+        }
+
+        if (raw == null) return;
+        int marker = raw.indexOf('#');
+        if (marker < 0 || marker + 1 >= raw.length()) return;
+
+        String rules = raw.substring(marker + 1).trim();
+        if (rules.isEmpty()) return;
+
+        for (String entry : rules.split("\\s*;\\s*")) {
+            if (entry == null || entry.trim().isEmpty()) continue;
+            int equals = entry.indexOf('=');
+            if (equals <= 0) continue;
+
+            int slot;
+            try {
+                slot = Integer.parseInt(entry.substring(0, equals).trim()) - 1;
+            } catch (NumberFormatException ignored) {
+                continue;
+            }
+            if (slot < 0 || slot >= ITEM_COUNT) continue;
+
+            String spec = entry.substring(equals + 1).trim();
+            String[] parts = spec.split("\\|", -1);
+            if (parts.length < 2) continue;
+
+            String entity = parts[0].trim();
+            String condition = canonicalVisibilityCondition(parts[1]);
+            StringBuilder value = new StringBuilder();
+            for (int i = 2; i < parts.length; i++) {
+                if (i > 2) value.append('|');
+                value.append(parts[i]);
+            }
+
+            visibilityConditions[slot] = condition;
+            visibilityValues[slot] = value.toString().trim();
+
+            if (!"Time between".equals(condition) &&
+                    !"time".equalsIgnoreCase(entity) &&
+                    !"@time".equalsIgnoreCase(entity)) {
+                visibilityEntities[slot] = entity;
+            }
+        }
+    }
+
+    private static String canonicalVisibilityCondition(String raw) {
+        String value = raw == null
+                ? ""
+                : raw.trim().toLowerCase(java.util.Locale.ROOT);
+        if ("active".equals(value)) return "Active";
+        if ("inactive".equals(value)) return "Inactive";
+        if ("state equals".equals(value)) return "State equals";
+        if ("state not equals".equals(value)) return "State not equals";
+        if ("numeric above".equals(value)) return "Numeric above";
+        if ("numeric below".equals(value)) return "Numeric below";
+        if ("numeric between".equals(value)) return "Numeric between";
+        if ("time between".equals(value)) return "Time between";
+        return "Always";
+    }
+
     private static int[] parseItemOrder(String raw) {
         int[] fallback = new int[] {0, 1, 2, 3, 4, 5};
         if (raw == null || raw.trim().isEmpty()) return fallback;
+
+        int marker = raw.indexOf('#');
+        if (marker >= 0) raw = raw.substring(0, marker);
+        if (raw.trim().isEmpty()) return fallback;
 
         int[] result = new int[ITEM_COUNT];
         boolean[] used = new boolean[ITEM_COUNT];
