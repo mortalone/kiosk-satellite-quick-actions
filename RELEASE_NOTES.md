@@ -1,6 +1,8 @@
-## Screensaver Quick Actions 0.1.1
+## Screensaver Quick Actions 0.1.2
 
-- Adds **Item order**, so configured action slots can be rearranged without re-selecting all entities.
-- Enter slot numbers such as `4,1,2,3,5,6`.
-- Partial orders are allowed: `4,1,2,3` puts slot 4 first and appends the remaining configured slots automatically.
-- Existing installations keep the default `1,2,3,4,5,6` order.
+- Entity pictures are now center-cropped into a true circular mask.
+- Pictures can no longer bleed outside the action pill.
+- Percentage and battery sensors without an entity picture get a compact
+  percentage badge in the leading circle.
+- Unit of measurement is appended to the displayed state, e.g. `91 %`.
+- Keeps the configurable **Item order** introduced in 0.1.1.
