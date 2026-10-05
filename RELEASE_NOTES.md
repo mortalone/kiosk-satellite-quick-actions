@@ -1,7 +1,4 @@
-# Screensaver Quick Actions 0.2.6
+Quick Actions 0.2.7
 
-- Hide Quick Actions while standalone Party Mode is active, independently of its own screensaver visibility.
-- Retain compatibility with the previous Party presentation and restore normal visibility on exit.
-- Preserve battery text-color default and saved text/level color actions.
-
-CI builds and verifies battery level and color behavior.
+- Party Mode 0.1.3 can opt into showing Quick Actions above its full-screen presentation.
+- Party keeps hiding the rail by default. Action-specific visibility rules remain active when enabled.

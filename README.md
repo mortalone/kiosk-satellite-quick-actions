@@ -86,3 +86,5 @@ remain independent of color.
 
 
 Quick Actions 0.2.6 yields during standalone Party Mode and retains its own visibility afterward.
+
+Party Mode 0.1.3+ can show this rail above its full-screen view with **Show Quick Actions above Party** in Party settings. Disabled by default; each action keeps its own visibility rules.
