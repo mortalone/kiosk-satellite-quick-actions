@@ -48,6 +48,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.time.LocalTime;
+import java.time.format.DateTimeParseException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -83,6 +85,9 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
 
     private final String[] displayEntities = new String[ITEM_COUNT];
     private final String[] actionEntities = new String[ITEM_COUNT];
+    private final String[] visibilityEntities = new String[ITEM_COUNT];
+    private final String[] visibilityConditions = new String[ITEM_COUNT];
+    private final String[] visibilityValues = new String[ITEM_COUNT];
     private final Map<String, EntitySnapshot> snapshots = new HashMap<>();
     private final Set<String> subscriptions = new HashSet<>();
 
@@ -198,10 +203,23 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
 
         Set<String> wanted = new HashSet<>();
         for (int i = 0; i < ITEM_COUNT; i++) {
-            displayEntities[i] = stringSetting(values, "item" + (i + 1) + "Entity");
-            actionEntities[i] = stringSetting(values, "item" + (i + 1) + "Action");
+            int slot = i + 1;
+            displayEntities[i] = stringSetting(values, "item" + slot + "Entity");
+            actionEntities[i] = stringSetting(values, "item" + slot + "Action");
+            visibilityEntities[i] = stringSetting(values, "item" + slot + "VisibilityEntity");
+            String condition = stringSetting(values, "item" + slot + "VisibilityCondition");
+            visibilityConditions[i] = condition.isEmpty() ? "Always" : condition;
+            visibilityValues[i] = stringSetting(values, "item" + slot + "VisibilityValue");
+
+            // Display and visibility entities need live state. Action-only
+            // entities do not: taps can call their service without consuming
+            // one of the plugin host's 16 entity subscriptions.
             if (!displayEntities[i].isEmpty()) wanted.add(displayEntities[i]);
-            if (!actionEntities[i].isEmpty()) wanted.add(actionEntities[i]);
+            if (!visibilityEntities[i].isEmpty() &&
+                    !"Always".equals(visibilityConditions[i]) &&
+                    !"Time between".equals(visibilityConditions[i])) {
+                wanted.add(visibilityEntities[i]);
+            }
         }
 
         for (String old : new HashSet<>(subscriptions)) {
@@ -306,7 +324,7 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
             if ("Horizontal".equals(layout)) itemParams.rightMargin = dp(spacingDp);
             else itemParams.bottomMargin = dp(spacingDp);
             rail.addView(item, itemParams);
-            itemViews.add(new ItemViews(index, leading, label));
+            itemViews.add(new ItemViews(index, item, leading, label));
         }
 
         int gravity = gravityForPosition(position);
@@ -329,6 +347,10 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
     private void refreshRail() {
         if (rail == null) return;
         for (ItemViews item : itemViews) {
+            boolean visible = itemVisible(item.index);
+            item.root.setVisibility(visible ? View.VISIBLE : View.GONE);
+            if (!visible) continue;
+
             String entity = displayEntities[item.index];
             EntitySnapshot snapshot = snapshots.get(entity);
             if (snapshot == null) {
@@ -339,6 +361,9 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
             String friendly = attr(snapshot.attributes, "friendly_name", entity);
             String state = snapshot.state;
             String unit = attr(snapshot.attributes, "unit_of_measurement", "").trim();
+            String deviceClass = attr(snapshot.attributes, "device_class", "");
+            String badge = percentageBadge(state, unit, deviceClass);
+
             String displayState = state;
             if (!state.isEmpty() &&
                     !"unknown".equalsIgnoreCase(state) &&
@@ -347,21 +372,108 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
                     !state.endsWith(unit)) {
                 displayState = state + ("%".equals(unit) ? " %" : " " + unit);
             }
+
+            // A percentage/battery value already lives in the circular badge.
+            // Do not print the same percentage a second time beside it.
             item.label.setText(
-                    displayState.isEmpty() || "unknown".equalsIgnoreCase(displayState)
+                    !badge.isEmpty()
                             ? friendly
-                            : friendly + "\n" + displayState);
+                            : (displayState.isEmpty() ||
+                               "unknown".equalsIgnoreCase(displayState)
+                                    ? friendly
+                                    : friendly + "\n" + displayState));
 
             String picture = attr(snapshot.attributes, "entity_picture", "");
             if (!picture.isEmpty()) {
                 loadPicture(item, picture);
             } else {
                 item.picture = "";
-                String deviceClass = attr(snapshot.attributes, "device_class", "");
-                String badge = percentageBadge(state, unit, deviceClass);
                 item.leading.setBadgeText(
                         badge.isEmpty() ? initials(friendly) : badge);
             }
+        }
+    }
+
+    private boolean itemVisible(int index) {
+        String condition = visibilityConditions[index];
+        if (condition == null || condition.isEmpty() || "Always".equals(condition)) {
+            return true;
+        }
+        String value = visibilityValues[index] == null ? "" : visibilityValues[index].trim();
+
+        if ("Time between".equals(condition)) {
+            return timeBetween(value);
+        }
+
+        String entity = visibilityEntities[index];
+        if (entity == null || entity.isEmpty()) return true;
+        EntitySnapshot snapshot = snapshots.get(entity);
+        if (snapshot == null) return false;
+        String state = snapshot.state == null ? "" : snapshot.state.trim();
+
+        if ("Active".equals(condition)) return activeState(state);
+        if ("Inactive".equals(condition)) return !activeState(state);
+        if ("State equals".equals(condition)) return state.equalsIgnoreCase(value);
+        if ("State not equals".equals(condition)) return !state.equalsIgnoreCase(value);
+
+        Double number = parseNumber(state);
+        if (number == null) return false;
+        if ("Numeric above".equals(condition)) {
+            Double threshold = parseNumber(value);
+            return threshold != null && number > threshold;
+        }
+        if ("Numeric below".equals(condition)) {
+            Double threshold = parseNumber(value);
+            return threshold != null && number < threshold;
+        }
+        if ("Numeric between".equals(condition)) {
+            double[] bounds = parseRange(value);
+            return bounds != null && number >= Math.min(bounds[0], bounds[1]) &&
+                    number <= Math.max(bounds[0], bounds[1]);
+        }
+        return true;
+    }
+
+    private static boolean activeState(String state) {
+        String s = state == null ? "" : state.trim().toLowerCase(java.util.Locale.ROOT);
+        return "on".equals(s) || "true".equals(s) || "home".equals(s) ||
+                "playing".equals(s) || "open".equals(s) || "detected".equals(s) ||
+                "occupied".equals(s) || "present".equals(s);
+    }
+
+    private static Double parseNumber(String value) {
+        try {
+            return Double.parseDouble(value.trim().replace(',', '.'));
+        } catch (Throwable ignored) {
+            return null;
+        }
+    }
+
+    private static double[] parseRange(String value) {
+        if (value == null) return null;
+        String[] parts = value.trim().split("\\.\\.");
+        if (parts.length != 2) return null;
+        Double a = parseNumber(parts[0]);
+        Double b = parseNumber(parts[1]);
+        return a == null || b == null ? null : new double[] {a, b};
+    }
+
+    private static boolean timeBetween(String value) {
+        if (value == null) return true;
+        String[] parts = value.trim().split("\\s*-\\s*");
+        if (parts.length != 2) return true;
+        try {
+            LocalTime from = LocalTime.parse(parts[0].trim());
+            LocalTime until = LocalTime.parse(parts[1].trim());
+            LocalTime now = LocalTime.now();
+            if (from.equals(until)) return true;
+            if (from.isBefore(until)) {
+                return !now.isBefore(from) && now.isBefore(until);
+            }
+            // Overnight window, e.g. 22:00-06:00.
+            return !now.isBefore(from) || now.isBefore(until);
+        } catch (DateTimeParseException ignored) {
+            return true;
         }
     }
 
@@ -840,11 +952,13 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
 
     private static final class ItemViews {
         final int index;
+        final View root;
         final LeadingView leading;
         final TextView label;
         String picture = "";
-        ItemViews(int index, LeadingView leading, TextView label) {
+        ItemViews(int index, View root, LeadingView leading, TextView label) {
             this.index = index;
+            this.root = root;
             this.leading = leading;
             this.label = label;
         }
