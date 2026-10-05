@@ -75,3 +75,11 @@ printed once beside the icon when labels are enabled. The icon is red at
 0–20%, yellow at 21–50% and green at 51–100%. Unknown/unavailable values show
 `?` rather than pretending the battery is empty. Non-battery percentage
 sensors retain their circular numeric badge.
+
+## 0.2.5: Battery color actions
+
+Battery outline and fill use the label text color by default. Choose
+**Battery icon: red/yellow/green by level (saved)** for the former level colors,
+or **Battery icon: same color as text (saved)** to return. The choice applies
+to all battery items and survives app restarts. Fill amount and percentage
+remain independent of color.

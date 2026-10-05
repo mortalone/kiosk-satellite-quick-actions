@@ -3,7 +3,7 @@
   "apiVersion": 1,
   "id": "quick-actions-overlay",
   "name": "Screensaver Quick Actions",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "minAndroidSdk": 26,
   "entryClass": "me.jxl.kiosk.plugins.quickactionsoverlay.QuickActionsOverlayPlugin",
   "description": "Quick Actions overlay for Kiosk Satellite screensavers and Fotoo, with entity pictures, filled battery icons, percentage badges, custom order, and per-item Home Assistant/time visibility rules.",
@@ -216,6 +216,14 @@
     {
       "id": "hide",
       "title": "Hide Quick Actions"
+    },
+    {
+      "id": "batteryTextColor",
+      "title": "Battery icon: same color as text (saved)"
+    },
+    {
+      "id": "batteryLevelColor",
+      "title": "Battery icon: red/yellow/green by level (saved)"
     }
   ],
   "groups": [

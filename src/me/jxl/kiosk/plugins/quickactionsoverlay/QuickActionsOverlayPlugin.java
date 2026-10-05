@@ -80,6 +80,7 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
     private int spacingDp = 8;
     private int opacity = 90;
     private boolean showLabels = true;
+    private boolean coloredBattery;
     private int[] itemOrder = new int[] {0, 1, 2, 3, 4, 5};
     private String haBaseUrl = "";
 
@@ -103,6 +104,8 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
             return;
         }
         this.windowManager = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
+        coloredBattery = context.getSharedPreferences("quick_actions_preferences", Context.MODE_PRIVATE)
+                .getBoolean("colored_battery", false);
         if (Build.VERSION.SDK_INT >= 23 && !Settings.canDrawOverlays(context)) {
             host.status("Grant Display over other apps to Kiosk Satellite.", true);
             return;
@@ -127,7 +130,15 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
 
     @Override
     public synchronized void execute(String command, Map<String, Object> arguments) {
-        if ("show".equals(command) || "test".equals(command)) {
+        if ("batteryTextColor".equals(command) || "batteryLevelColor".equals(command)) {
+            final boolean useLevelColor = "batteryLevelColor".equals(command);
+            main.post(() -> {
+                coloredBattery = useLevelColor;
+                context.getSharedPreferences("quick_actions_preferences", Context.MODE_PRIVATE)
+                        .edit().putBoolean("colored_battery", useLevelColor).apply();
+                refreshRail();
+            });
+        } else if ("show".equals(command) || "test".equals(command)) {
             forcePreview = true;
             main.post(this::updatePresentation);
         } else if ("hide".equals(command)) {
@@ -393,7 +404,7 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
             String picture = attr(snapshot.attributes, "entity_picture", "");
             if (battery) {
                 item.picture = "";
-                item.leading.setBatteryLevel(batteryLevel);
+                item.leading.setBatteryLevel(batteryLevel, coloredBattery, item.label.getCurrentTextColor());
             } else if (!picture.isEmpty()) {
                 loadPicture(item, picture);
             } else {
@@ -959,6 +970,8 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
         private String badgeText = "•";
         private boolean battery;
         private int batteryLevel = -1;
+        private boolean coloredBattery;
+        private int batteryColor = Color.WHITE;
 
         LeadingView(Context context) {
             super(context);
@@ -985,10 +998,12 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
             invalidate();
         }
 
-        void setBatteryLevel(int value) {
+        void setBatteryLevel(int value, boolean colored, int textColor) {
             bitmap = null;
             battery = true;
             batteryLevel = value;
+            coloredBattery = colored;
+            batteryColor = textColor;
             invalidate();
         }
 
@@ -1050,7 +1065,7 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
             float top = cy - size * 0.16f;
             float bottom = cy + size * 0.16f;
             float stroke = Math.max(1f, size * 0.025f);
-            paint.setColor(Color.WHITE);
+            paint.setColor(batteryColor);
             paint.setStyle(Paint.Style.STROKE);
             paint.setStrokeWidth(stroke);
             canvas.drawRoundRect(left, top, right, bottom, size * 0.035f, size * 0.035f, paint);
@@ -1060,8 +1075,7 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
             if (batteryLevel >= 0) {
                 float inset = stroke * 1.7f;
                 float innerWidth = Math.max(0f, right - left - inset * 2f);
-                paint.setColor(batteryLevel <= 20 ? 0xFFEF4444 :
-                        batteryLevel <= 50 ? 0xFFFACC15 : 0xFF22C55E);
+                paint.setColor(BatteryLevel.fillColor(batteryLevel, coloredBattery, batteryColor));
                 if (batteryLevel > 0) canvas.drawRect(left + inset, top + inset,
                         left + inset + innerWidth * batteryLevel / 100f, bottom - inset, paint);
             } else {
