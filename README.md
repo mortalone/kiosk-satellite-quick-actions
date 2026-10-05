@@ -26,3 +26,14 @@ numbers. For example:
 
 shows Item 4 first, followed by Items 1, 2, 3, 5 and 6. You may also enter a
 partial order such as `4,1,2,3`; any omitted slots are appended automatically.
+
+
+## 0.1.2 display improvements
+
+Entity pictures are hard-clipped to a true circle, so portrait images cannot
+spill outside the pill. Percentage sensors, including battery sensors, use a
+compact percentage badge when there is no entity picture. Units are appended to
+the secondary state, so a battery state of `91` with unit `%` is shown as
+`91 %`.
+
+The existing **Item order** setting from 0.1.1 remains available.
