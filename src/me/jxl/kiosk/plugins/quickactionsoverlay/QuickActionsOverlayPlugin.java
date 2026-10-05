@@ -9,8 +9,14 @@ import android.content.Intent;
 import android.content.IntentFilter;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.PixelFormat;
+import android.graphics.Rect;
+import android.graphics.RectF;
+import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
 import android.os.Bundle;
@@ -23,7 +29,6 @@ import android.view.ViewGroup;
 import android.view.ViewParent;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
-import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -281,11 +286,9 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
             item.setClickable(true);
             item.setOnClickListener(v -> performAction(index));
 
-            ImageView avatar = new ImageView(context);
-            avatar.setScaleType(ImageView.ScaleType.CENTER_CROP);
-            avatar.setBackground(cardBackground(0xFF40434A, 999));
+            LeadingView leading = new LeadingView(context);
             int avatarSize = dp(itemSizeDp);
-            item.addView(avatar, new LinearLayout.LayoutParams(avatarSize, avatarSize));
+            item.addView(leading, new LinearLayout.LayoutParams(avatarSize, avatarSize));
 
             TextView label = new TextView(context);
             label.setTextColor(Color.WHITE);
@@ -303,7 +306,7 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
             if ("Horizontal".equals(layout)) itemParams.rightMargin = dp(spacingDp);
             else itemParams.bottomMargin = dp(spacingDp);
             rail.addView(item, itemParams);
-            itemViews.add(new ItemViews(index, avatar, label));
+            itemViews.add(new ItemViews(index, leading, label));
         }
 
         int gravity = gravityForPosition(position);
@@ -335,17 +338,29 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
 
             String friendly = attr(snapshot.attributes, "friendly_name", entity);
             String state = snapshot.state;
+            String unit = attr(snapshot.attributes, "unit_of_measurement", "").trim();
+            String displayState = state;
+            if (!state.isEmpty() &&
+                    !"unknown".equalsIgnoreCase(state) &&
+                    !"unavailable".equalsIgnoreCase(state) &&
+                    !unit.isEmpty() &&
+                    !state.endsWith(unit)) {
+                displayState = state + ("%".equals(unit) ? " %" : " " + unit);
+            }
             item.label.setText(
-                    state.isEmpty() || "unknown".equalsIgnoreCase(state)
+                    displayState.isEmpty() || "unknown".equalsIgnoreCase(displayState)
                             ? friendly
-                            : friendly + "\n" + state);
+                            : friendly + "\n" + displayState);
 
             String picture = attr(snapshot.attributes, "entity_picture", "");
-            if (!picture.isEmpty()) loadPicture(item, picture);
-            else {
+            if (!picture.isEmpty()) {
+                loadPicture(item, picture);
+            } else {
                 item.picture = "";
-                item.avatar.setImageDrawable(null);
-                item.avatar.setBackground(cardBackground(0xFF40434A, 999));
+                String deviceClass = attr(snapshot.attributes, "device_class", "");
+                String badge = percentageBadge(state, unit, deviceClass);
+                item.leading.setBadgeText(
+                        badge.isEmpty() ? initials(friendly) : badge);
             }
         }
     }
@@ -359,8 +374,7 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
             Bitmap bitmap = fetchBitmap(url);
             main.post(() -> {
                 if (bitmap != null && picture.equals(item.picture)) {
-                    item.avatar.setBackground(null);
-                    item.avatar.setImageBitmap(bitmap);
+                    item.leading.setPicture(bitmap);
                 }
             });
         });
@@ -707,14 +721,131 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
         }
     }
 
+    private static String percentageBadge(
+            String state,
+            String unit,
+            String deviceClass) {
+        boolean percentage = "%".equals(unit) || "battery".equalsIgnoreCase(deviceClass);
+        if (!percentage || state == null) return "";
+        try {
+            double value = Double.parseDouble(state.trim().replace(',', '.'));
+            int rounded = (int) Math.round(value);
+            return Math.max(0, Math.min(100, rounded)) + "%";
+        } catch (NumberFormatException ignored) {
+            return "";
+        }
+    }
+
+    private static String initials(String value) {
+        if (value == null || value.trim().isEmpty()) return "•";
+        String[] parts = value.trim().split("\\s+");
+        if (parts.length == 1) {
+            String p = parts[0];
+            return p.substring(0, Math.min(2, p.length())).toUpperCase(java.util.Locale.ROOT);
+        }
+        String first = parts[0].substring(0, 1);
+        String last = parts[parts.length - 1].substring(0, 1);
+        return (first + last).toUpperCase(java.util.Locale.ROOT);
+    }
+
+    /**
+     * Circular leading content for each pill. A real entity_picture is
+     * center-cropped inside a hard circular clip so it can never spill out of
+     * the pill. Percentage/battery sensors use their value in the same circle;
+     * other entities fall back to initials.
+     */
+    private static final class LeadingView extends View {
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+        private final Paint border = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint text = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Path clip = new Path();
+        private final Rect src = new Rect();
+        private final RectF dst = new RectF();
+        private Bitmap bitmap;
+        private String badgeText = "•";
+
+        LeadingView(Context context) {
+            super(context);
+            border.setStyle(Paint.Style.STROKE);
+            border.setStrokeWidth(
+                    Math.max(1f, context.getResources().getDisplayMetrics().density));
+            border.setColor(0x66FFFFFF);
+
+            text.setColor(Color.WHITE);
+            text.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
+            text.setTextAlign(Paint.Align.CENTER);
+        }
+
+        void setPicture(Bitmap value) {
+            bitmap = value;
+            invalidate();
+        }
+
+        void setBadgeText(String value) {
+            bitmap = null;
+            badgeText = value == null || value.isEmpty() ? "•" : value;
+            invalidate();
+        }
+
+        @Override
+        protected void onDraw(Canvas canvas) {
+            super.onDraw(canvas);
+            float size = Math.min(getWidth(), getHeight());
+            float cx = getWidth() / 2f;
+            float cy = getHeight() / 2f;
+            float radius = size / 2f;
+
+            paint.setColor(0xFF3F4248);
+            canvas.drawCircle(cx, cy, radius, paint);
+
+            Bitmap b = bitmap;
+            if (b != null && b.getWidth() > 0 && b.getHeight() > 0) {
+                int bw = b.getWidth();
+                int bh = b.getHeight();
+                int crop;
+                if (bw > bh) {
+                    crop = bh;
+                    int left = (bw - crop) / 2;
+                    src.set(left, 0, left + crop, crop);
+                } else {
+                    crop = bw;
+                    int top = (bh - crop) / 2;
+                    src.set(0, top, crop, top + crop);
+                }
+
+                dst.set(cx - radius, cy - radius, cx + radius, cy + radius);
+                clip.reset();
+                clip.addCircle(cx, cy, radius, Path.Direction.CW);
+                int save = canvas.save();
+                canvas.clipPath(clip);
+                canvas.drawBitmap(b, src, dst, paint);
+                canvas.restoreToCount(save);
+            } else {
+                String value = badgeText == null ? "•" : badgeText;
+                float density = getResources().getDisplayMetrics().scaledDensity;
+                float sp = value.length() >= 4 ? 13f : value.length() >= 3 ? 15f : 18f;
+                text.setTextSize(sp * density);
+                Paint.FontMetrics fm = text.getFontMetrics();
+                float baseline = cy - (fm.ascent + fm.descent) / 2f;
+                canvas.drawText(value, cx, baseline, text);
+            }
+
+            canvas.drawCircle(
+                    cx,
+                    cy,
+                    Math.max(0f, radius - border.getStrokeWidth() / 2f),
+                    border);
+        }
+    }
+
     private static final class ItemViews {
         final int index;
-        final ImageView avatar;
+        final LeadingView leading;
         final TextView label;
         String picture = "";
-        ItemViews(int index, ImageView avatar, TextView label) {
+        ItemViews(int index, LeadingView leading, TextView label) {
             this.index = index;
-            this.avatar = avatar;
+            this.leading = leading;
             this.label = label;
         }
     }
