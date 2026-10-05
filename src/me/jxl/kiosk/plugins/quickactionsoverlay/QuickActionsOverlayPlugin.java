@@ -261,6 +261,11 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
     }
 
     private boolean overlayActive() {
+        if (context != null) {
+            android.content.SharedPreferences presentation = context.getSharedPreferences("now_playing_presentation", Context.MODE_PRIVATE);
+            if (presentation.getBoolean("party_fullscreen", false) &&
+                    presentation.getLong("party_until_ms", 0) > System.currentTimeMillis()) return false;
+        }
         boolean kiosk = showOnKiosk && kioskScreensaverActive &&
                 !"black".equals(kioskScreensaverView) &&
                 !"blank".equals(kioskScreensaverView);
@@ -624,7 +629,9 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
     private void registerDreamReceiver() {
         dreamReceiver = new BroadcastReceiver() {
             @Override public void onReceive(Context ignored, Intent intent) {
-                if (Intent.ACTION_DREAMING_STARTED.equals(intent.getAction())) {
+                if ("me.jxl.kiosk.plugins.PARTY_PRESENTATION_CHANGED".equals(intent.getAction())) {
+                    updatePresentation();
+                } else if (Intent.ACTION_DREAMING_STARTED.equals(intent.getAction())) {
                     dreaming = true;
                     updatePresentation();
                 } else if (Intent.ACTION_DREAMING_STOPPED.equals(intent.getAction())) {
@@ -635,6 +642,7 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
             }
         };
         IntentFilter filter = new IntentFilter();
+        filter.addAction("me.jxl.kiosk.plugins.PARTY_PRESENTATION_CHANGED");
         filter.addAction(Intent.ACTION_DREAMING_STARTED);
         filter.addAction(Intent.ACTION_DREAMING_STOPPED);
         if (Build.VERSION.SDK_INT >= 33) {
