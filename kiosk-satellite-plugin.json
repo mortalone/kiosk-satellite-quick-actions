@@ -3,10 +3,10 @@
   "apiVersion": 1,
   "id": "quick-actions-overlay",
   "name": "Screensaver Quick Actions",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "minAndroidSdk": 26,
   "entryClass": "me.jxl.kiosk.plugins.quickactionsoverlay.QuickActionsOverlayPlugin",
-  "description": "Touchable Home Assistant entity/action rail for Kiosk Satellite screensavers and Fotoo.",
+  "description": "Quick Actions overlay for Kiosk Satellite screensavers and Fotoo, with entity pictures, percentage badges, custom order, and per-item Home Assistant/time visibility rules.",
   "author": "Local Kiosk Satellite project",
   "license": "MIT",
   "capabilities": [
@@ -202,6 +202,216 @@
       "default": "",
       "group": "Actions",
       "description": "Entity activated when tapped. Leave empty to act on the display entity."
+    },
+    {
+      "key": "item1VisibilityEntity",
+      "type": "entity",
+      "title": "Item 1 visibility entity (optional)",
+      "default": "",
+      "group": "Visibility",
+      "description": "Optional Home Assistant entity that controls whether this Quick Action is visible."
+    },
+    {
+      "key": "item1VisibilityCondition",
+      "type": "select",
+      "title": "Item 1 visibility condition",
+      "default": "Always",
+      "options": [
+        "Always",
+        "Active",
+        "Inactive",
+        "State equals",
+        "State not equals",
+        "Numeric above",
+        "Numeric below",
+        "Numeric between",
+        "Time between"
+      ],
+      "group": "Visibility",
+      "description": "Active recognizes on, true, home, playing, open, detected, occupied and present. Time between does not need an entity."
+    },
+    {
+      "key": "item1VisibilityValue",
+      "type": "string",
+      "title": "Item 1 visibility value",
+      "default": "",
+      "group": "Visibility",
+      "description": "Value used by the selected condition. Examples: playing, 30, 10..200, or 22:00-06:00."
+    },
+    {
+      "key": "item2VisibilityEntity",
+      "type": "entity",
+      "title": "Item 2 visibility entity (optional)",
+      "default": "",
+      "group": "Visibility",
+      "description": "Optional Home Assistant entity that controls whether this Quick Action is visible."
+    },
+    {
+      "key": "item2VisibilityCondition",
+      "type": "select",
+      "title": "Item 2 visibility condition",
+      "default": "Always",
+      "options": [
+        "Always",
+        "Active",
+        "Inactive",
+        "State equals",
+        "State not equals",
+        "Numeric above",
+        "Numeric below",
+        "Numeric between",
+        "Time between"
+      ],
+      "group": "Visibility",
+      "description": "Active recognizes on, true, home, playing, open, detected, occupied and present. Time between does not need an entity."
+    },
+    {
+      "key": "item2VisibilityValue",
+      "type": "string",
+      "title": "Item 2 visibility value",
+      "default": "",
+      "group": "Visibility",
+      "description": "Value used by the selected condition. Examples: playing, 30, 10..200, or 22:00-06:00."
+    },
+    {
+      "key": "item3VisibilityEntity",
+      "type": "entity",
+      "title": "Item 3 visibility entity (optional)",
+      "default": "",
+      "group": "Visibility",
+      "description": "Optional Home Assistant entity that controls whether this Quick Action is visible."
+    },
+    {
+      "key": "item3VisibilityCondition",
+      "type": "select",
+      "title": "Item 3 visibility condition",
+      "default": "Always",
+      "options": [
+        "Always",
+        "Active",
+        "Inactive",
+        "State equals",
+        "State not equals",
+        "Numeric above",
+        "Numeric below",
+        "Numeric between",
+        "Time between"
+      ],
+      "group": "Visibility",
+      "description": "Active recognizes on, true, home, playing, open, detected, occupied and present. Time between does not need an entity."
+    },
+    {
+      "key": "item3VisibilityValue",
+      "type": "string",
+      "title": "Item 3 visibility value",
+      "default": "",
+      "group": "Visibility",
+      "description": "Value used by the selected condition. Examples: playing, 30, 10..200, or 22:00-06:00."
+    },
+    {
+      "key": "item4VisibilityEntity",
+      "type": "entity",
+      "title": "Item 4 visibility entity (optional)",
+      "default": "",
+      "group": "Visibility",
+      "description": "Optional Home Assistant entity that controls whether this Quick Action is visible."
+    },
+    {
+      "key": "item4VisibilityCondition",
+      "type": "select",
+      "title": "Item 4 visibility condition",
+      "default": "Always",
+      "options": [
+        "Always",
+        "Active",
+        "Inactive",
+        "State equals",
+        "State not equals",
+        "Numeric above",
+        "Numeric below",
+        "Numeric between",
+        "Time between"
+      ],
+      "group": "Visibility",
+      "description": "Active recognizes on, true, home, playing, open, detected, occupied and present. Time between does not need an entity."
+    },
+    {
+      "key": "item4VisibilityValue",
+      "type": "string",
+      "title": "Item 4 visibility value",
+      "default": "",
+      "group": "Visibility",
+      "description": "Value used by the selected condition. Examples: playing, 30, 10..200, or 22:00-06:00."
+    },
+    {
+      "key": "item5VisibilityEntity",
+      "type": "entity",
+      "title": "Item 5 visibility entity (optional)",
+      "default": "",
+      "group": "Visibility",
+      "description": "Optional Home Assistant entity that controls whether this Quick Action is visible."
+    },
+    {
+      "key": "item5VisibilityCondition",
+      "type": "select",
+      "title": "Item 5 visibility condition",
+      "default": "Always",
+      "options": [
+        "Always",
+        "Active",
+        "Inactive",
+        "State equals",
+        "State not equals",
+        "Numeric above",
+        "Numeric below",
+        "Numeric between",
+        "Time between"
+      ],
+      "group": "Visibility",
+      "description": "Active recognizes on, true, home, playing, open, detected, occupied and present. Time between does not need an entity."
+    },
+    {
+      "key": "item5VisibilityValue",
+      "type": "string",
+      "title": "Item 5 visibility value",
+      "default": "",
+      "group": "Visibility",
+      "description": "Value used by the selected condition. Examples: playing, 30, 10..200, or 22:00-06:00."
+    },
+    {
+      "key": "item6VisibilityEntity",
+      "type": "entity",
+      "title": "Item 6 visibility entity (optional)",
+      "default": "",
+      "group": "Visibility",
+      "description": "Optional Home Assistant entity that controls whether this Quick Action is visible."
+    },
+    {
+      "key": "item6VisibilityCondition",
+      "type": "select",
+      "title": "Item 6 visibility condition",
+      "default": "Always",
+      "options": [
+        "Always",
+        "Active",
+        "Inactive",
+        "State equals",
+        "State not equals",
+        "Numeric above",
+        "Numeric below",
+        "Numeric between",
+        "Time between"
+      ],
+      "group": "Visibility",
+      "description": "Active recognizes on, true, home, playing, open, detected, occupied and present. Time between does not need an entity."
+    },
+    {
+      "key": "item6VisibilityValue",
+      "type": "string",
+      "title": "Item 6 visibility value",
+      "default": "",
+      "group": "Visibility",
+      "description": "Value used by the selected condition. Examples: playing, 30, 10..200, or 22:00-06:00."
     }
   ],
   "commands": [
@@ -224,6 +434,9 @@
     },
     {
       "title": "Actions"
+    },
+    {
+      "title": "Visibility"
     }
   ]
 }
