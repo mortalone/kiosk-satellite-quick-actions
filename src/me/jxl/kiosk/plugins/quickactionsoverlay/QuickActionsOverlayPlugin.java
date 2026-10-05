@@ -73,6 +73,7 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
     private int spacingDp = 8;
     private int opacity = 90;
     private boolean showLabels = true;
+    private int[] itemOrder = new int[] {0, 1, 2, 3, 4, 5};
     private String haBaseUrl = "";
 
     private final String[] displayEntities = new String[ITEM_COUNT];
@@ -188,6 +189,7 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
         opacity = intSetting(values, "opacity", 90, 30, 100);
         showLabels = values.get("showLabels") == null ||
                 Boolean.TRUE.equals(values.get("showLabels"));
+        itemOrder = parseItemOrder(stringSetting(values, "itemOrder"));
 
         Set<String> wanted = new HashSet<>();
         for (int i = 0; i < ITEM_COUNT; i++) {
@@ -265,7 +267,8 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
         rail.setAlpha(opacity / 100f);
 
         itemViews.clear();
-        for (int i = 0; i < ITEM_COUNT; i++) {
+        for (int orderIndex = 0; orderIndex < ITEM_COUNT; orderIndex++) {
+            final int i = itemOrder[orderIndex];
             if (displayEntities[i] == null || displayEntities[i].isEmpty()) continue;
             final int index = i;
 
@@ -635,6 +638,32 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
 
     private int dp(int value) {
         return Math.round(value * context.getResources().getDisplayMetrics().density);
+    }
+
+    private static int[] parseItemOrder(String raw) {
+        int[] fallback = new int[] {0, 1, 2, 3, 4, 5};
+        if (raw == null || raw.trim().isEmpty()) return fallback;
+
+        int[] result = new int[ITEM_COUNT];
+        boolean[] used = new boolean[ITEM_COUNT];
+        int count = 0;
+
+        String[] parts = raw.split("[,;\\s]+");
+        for (String part : parts) {
+            if (part == null || part.trim().isEmpty()) continue;
+            try {
+                int slot = Integer.parseInt(part.trim()) - 1;
+                if (slot >= 0 && slot < ITEM_COUNT && !used[slot]) {
+                    result[count++] = slot;
+                    used[slot] = true;
+                }
+            } catch (NumberFormatException ignored) {}
+        }
+
+        for (int slot = 0; slot < ITEM_COUNT; slot++) {
+            if (!used[slot]) result[count++] = slot;
+        }
+        return result;
     }
 
     private static String stringSetting(Map<String, Object> values, String key) {
