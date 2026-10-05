@@ -359,6 +359,9 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
             String state = snapshot.state;
             String unit = attr(snapshot.attributes, "unit_of_measurement", "").trim();
             String deviceClass = attr(snapshot.attributes, "device_class", "");
+            boolean battery = BatteryLevel.isBattery(
+                    deviceClass, attr(snapshot.attributes, "icon", ""));
+            int batteryLevel = battery ? BatteryLevel.parse(state) : -1;
             String badge = percentageBadge(state, unit, deviceClass);
 
             String displayState = state;
@@ -370,10 +373,12 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
                 displayState = state + ("%".equals(unit) ? " %" : " " + unit);
             }
 
-            // A percentage/battery value already lives in the circular badge.
-            // Do not print the same percentage a second time beside it.
+            // Batteries show a filled icon and one percentage beside it.
+            // Other percentage sensors keep the number inside the circle.
             item.label.setText(
-                    !badge.isEmpty()
+                    battery && batteryLevel >= 0
+                            ? friendly + "\n" + batteryLevel + " %"
+                            : !badge.isEmpty()
                             ? friendly
                             : (displayState.isEmpty() ||
                                "unknown".equalsIgnoreCase(displayState)
@@ -381,7 +386,10 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
                                     : friendly + "\n" + displayState));
 
             String picture = attr(snapshot.attributes, "entity_picture", "");
-            if (!picture.isEmpty()) {
+            if (battery) {
+                item.picture = "";
+                item.leading.setBatteryLevel(batteryLevel);
+            } else if (!picture.isEmpty()) {
                 loadPicture(item, picture);
             } else {
                 item.picture = "";
@@ -929,8 +937,8 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
     /**
      * Circular leading content for each pill. A real entity_picture is
      * center-cropped inside a hard circular clip so it can never spill out of
-     * the pill. Percentage/battery sensors use their value in the same circle;
-     * other entities fall back to initials.
+     * the pill. Batteries use a filled icon; other percentage sensors use
+     * their value in the same circle. Other entities fall back to initials.
      */
     private static final class LeadingView extends View {
         private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
@@ -941,6 +949,8 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
         private final RectF dst = new RectF();
         private Bitmap bitmap;
         private String badgeText = "•";
+        private boolean battery;
+        private int batteryLevel = -1;
 
         LeadingView(Context context) {
             super(context);
@@ -955,13 +965,22 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
         }
 
         void setPicture(Bitmap value) {
+            battery = false;
             bitmap = value;
             invalidate();
         }
 
         void setBadgeText(String value) {
+            battery = false;
             bitmap = null;
             badgeText = value == null || value.isEmpty() ? "•" : value;
+            invalidate();
+        }
+
+        void setBatteryLevel(int value) {
+            bitmap = null;
+            battery = true;
+            batteryLevel = value;
             invalidate();
         }
 
@@ -977,7 +996,9 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
             canvas.drawCircle(cx, cy, radius, paint);
 
             Bitmap b = bitmap;
-            if (b != null && b.getWidth() > 0 && b.getHeight() > 0) {
+            if (battery) {
+                drawBattery(canvas, cx, cy, size);
+            } else if (b != null && b.getWidth() > 0 && b.getHeight() > 0) {
                 int bw = b.getWidth();
                 int bh = b.getHeight();
                 int crop;
@@ -1013,6 +1034,34 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
                     cy,
                     Math.max(0f, radius - border.getStrokeWidth() / 2f),
                     border);
+        }
+
+        private void drawBattery(Canvas canvas, float cx, float cy, float size) {
+            float left = cx - size * 0.27f;
+            float right = cx + size * 0.23f;
+            float top = cy - size * 0.16f;
+            float bottom = cy + size * 0.16f;
+            float stroke = Math.max(1f, size * 0.025f);
+            paint.setColor(Color.WHITE);
+            paint.setStyle(Paint.Style.STROKE);
+            paint.setStrokeWidth(stroke);
+            canvas.drawRoundRect(left, top, right, bottom, size * 0.035f, size * 0.035f, paint);
+            paint.setStyle(Paint.Style.FILL);
+            canvas.drawRect(right + stroke, cy - size * 0.07f,
+                    right + size * 0.06f, cy + size * 0.07f, paint);
+            if (batteryLevel >= 0) {
+                float inset = stroke * 1.7f;
+                float innerWidth = Math.max(0f, right - left - inset * 2f);
+                paint.setColor(batteryLevel <= 20 ? 0xFFEF4444 :
+                        batteryLevel <= 50 ? 0xFFFACC15 : 0xFF22C55E);
+                if (batteryLevel > 0) canvas.drawRect(left + inset, top + inset,
+                        left + inset + innerWidth * batteryLevel / 100f, bottom - inset, paint);
+            } else {
+                text.setTextSize(size * 0.24f);
+                Paint.FontMetrics fm = text.getFontMetrics();
+                canvas.drawText("?", (left + right) / 2f,
+                        cy - (fm.ascent + fm.descent) / 2f, text);
+            }
         }
     }
 

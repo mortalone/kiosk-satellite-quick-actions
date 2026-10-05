@@ -26,6 +26,11 @@ jobs:
           yes | "$SDKMANAGER" "platforms;android-35" >/dev/null
       - name: Build plugin
         run: python3 tools/build.py --android-platform 35
+      - name: Verify battery levels
+        run: |
+          mkdir -p /tmp/battery-test
+          javac --release 8 -d /tmp/battery-test src/me/jxl/kiosk/plugins/quickactionsoverlay/BatteryLevel.java tests/BatteryLevelTest.java
+          java -cp /tmp/battery-test me.jxl.kiosk.plugins.quickactionsoverlay.BatteryLevelTest
       - uses: actions/upload-artifact@v4
         with:
           name: quick-actions-overlay

@@ -65,3 +65,13 @@ Kiosk Satellite allows at most 20 settings per plugin. The six independent
 visibility rules are therefore encoded compactly inside **Item order &
 visibility**, keeping all six display entities, all six separate action
 entities, layout, size, spacing, opacity and labels available.
+
+
+## 0.2.3: battery icons
+
+Battery entities (HA device_class=battery or mdi:battery icon) show a battery
+outline with fill proportional to their remaining level. The percentage is
+printed once beside the icon when labels are enabled. The icon is red at
+0–20%, yellow at 21–50% and green at 51–100%. Unknown/unavailable values show
+`?` rather than pretending the battery is empty. Non-battery percentage
+sensors retain their circular numeric badge.
