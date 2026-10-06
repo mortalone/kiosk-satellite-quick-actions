@@ -1,6 +1,6 @@
-# Screensaver Quick Actions
+# Quick Actions & Clock
 
-Touchable Home Assistant entity/action rail for Kiosk Satellite screensavers and Fotoo.
+Shared Home Assistant entity/action rail and optional clock for the Kiosk dashboard, screensavers and Fotoo.
 
 Install in **Kiosk Satellite → Plugin Manager → Add plugin** using:
 
@@ -88,3 +88,30 @@ remain independent of color.
 Quick Actions 0.2.6 yields during standalone Party Mode and retains its own visibility afterward.
 
 Party Mode 0.1.3+ can show this rail above its full-screen view with **Show Quick Actions above Party** in Party settings. Disabled by default; each action keeps its own visibility rules.
+
+
+## 0.2.8: dashboard, clock and GitHub updates
+
+Update directly from the repository URL above in Kiosk Satellite's Plugin Manager.
+ZIP-installed copies have no repository source; install once through **Add plugin**
+using this URL to associate the same plugin ID with its update repository. Existing
+settings are preserved by Kiosk when replacing the same plugin ID.
+
+Run **Display & clock settings (saved)** in the plugin's Actions. It opens a native
+settings window on the kiosk; select dashboard actions and independent clock
+visibility for dashboard, Kiosk screensaver and Fotoo. Date, size and clock position
+are configurable there. Press Save; these choices persist across app restarts.
+All new display contexts start off. For a compact action row, select Horizontal
+and disable Show names and states in the usual plugin settings.
+
+Party Mode keeps hiding actions by default. Its existing Show Quick Actions option
+still works; the saved display window can also opt in. The plugin clock is always
+hidden in Party Mode. Leave the Kiosk screensaver clock disabled here if you want
+to retain the existing built-in clock without a duplicate.
+
+The plugin still declares exactly 20 normal settings. Battery color, order,
+visibility rules and all six display/action pairs are retained.
+
+For HA switching, expose the Open Fotoo with Quick Actions, Attach Quick Actions
+to Fotoo, and Show Wall Art now commands. The ready-made HA package is at:
+https://github.com/mortalone/kiosk-satellite-fotoo-overlay/blob/main/examples/screensaver-mode-package.yaml

@@ -24,6 +24,12 @@ jobs:
         run: |
           SDKMANAGER=$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -1)
           yes | "$SDKMANAGER" "platforms;android-35" >/dev/null
+      - name: Verify manifest and visibility rules
+        run: |
+          python3 -c 'import json; m=json.load(open("kiosk-satellite-plugin.json")); assert len(m["settings"]) <= 20; assert len(m["commands"]) <= 20'
+          mkdir -p /tmp/visibility-test
+          javac --release 8 -d /tmp/visibility-test src/me/jxl/kiosk/plugins/quickactionsoverlay/OverlayVisibility.java tests/OverlayVisibilityTest.java
+          java -cp /tmp/visibility-test me.jxl.kiosk.plugins.quickactionsoverlay.OverlayVisibilityTest
       - name: Build plugin
         run: python3 tools/build.py --android-platform 35
       - name: Verify battery levels

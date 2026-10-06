@@ -2,16 +2,17 @@
   "schemaVersion": 1,
   "apiVersion": 1,
   "id": "quick-actions-overlay",
-  "name": "Screensaver Quick Actions",
-  "version": "0.2.7",
+  "name": "Quick Actions & Clock",
+  "version": "0.2.8",
   "minAndroidSdk": 26,
   "entryClass": "me.jxl.kiosk.plugins.quickactionsoverlay.QuickActionsOverlayPlugin",
-  "description": "Quick Actions overlay for Kiosk Satellite screensavers and Fotoo, with entity pictures, filled battery icons, percentage badges, custom order, and per-item Home Assistant/time visibility rules.",
+  "description": "Shared Home Assistant actions and optional clock for Kiosk dashboard, screensavers and Fotoo, with battery icons and per-item visibility rules.",
   "author": "Local Kiosk Satellite project",
   "license": "MIT",
   "capabilities": [
     "overlay",
-    "host.read"
+    "host.read",
+    "host.control"
   ],
   "settings": [
     {
@@ -224,6 +225,22 @@
     {
       "id": "batteryLevelColor",
       "title": "Battery icon: red/yellow/green by level (saved)"
+    },
+    {
+      "id": "displaySettings",
+      "title": "Display & clock settings (saved)"
+    },
+    {
+      "id": "openFotoo",
+      "title": "Open Fotoo with Quick Actions"
+    },
+    {
+      "id": "showWallArt",
+      "title": "Show Wall Art now"
+    },
+    {
+      "id": "attachFotoo",
+      "title": "Attach Quick Actions to Fotoo"
     }
   ],
   "groups": [
