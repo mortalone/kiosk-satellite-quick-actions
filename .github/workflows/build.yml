@@ -30,6 +30,11 @@ jobs:
           mkdir -p /tmp/visibility-test
           javac --release 8 -d /tmp/visibility-test src/me/jxl/kiosk/plugins/quickactionsoverlay/OverlayVisibility.java tests/OverlayVisibilityTest.java
           java -cp /tmp/visibility-test me.jxl.kiosk.plugins.quickactionsoverlay.OverlayVisibilityTest
+      - name: Verify permanent Show on combinations
+        run: |
+          mkdir -p /tmp/target-test
+          javac --release 8 -d /tmp/target-test src/me/jxl/kiosk/plugins/quickactionsoverlay/OverlayTarget.java tests/OverlayTargetTest.java
+          java -cp /tmp/target-test me.jxl.kiosk.plugins.quickactionsoverlay.OverlayTargetTest
       - name: Build plugin
         run: python3 tools/build.py --android-platform 35
       - name: Verify battery levels

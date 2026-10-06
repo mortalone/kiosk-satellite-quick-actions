@@ -1,10 +1,10 @@
-Quick Actions & Clock 0.2.8
+Quick Actions & Clock 0.2.9
 
-- Publishes the dashboard/clock and Wall Art/Fotoo changes in the dedicated GitHub update repository.
-- Preserves battery rendering/color controls, item order, and per-item entity/time visibility rules from 0.2.7.
-- Adds Display & clock settings (saved): dashboard actions, optional Party actions, independent clock contexts, date, size and position. These persist across restarts without exceeding Kiosk's 20-setting limit.
-- Keeps the existing Party Mode opt-in handshake. The plugin clock is always hidden in Party Mode.
-- Adds explicit Fotoo launch/attach and Show Wall Art now commands for HA scripts.
-- Adds foreground/Party visibility checks and manifest budget validation, alongside existing battery tests.
+- Expands the permanent Show on selector to all dashboard/Kiosk/Fotoo combinations and Hidden, while preserving the three existing option values.
+- The Display & clock settings action remains available. Saving its dashboard checkbox updates the same Show on setting and preserves the other configured actions.
+- Uses Activity resumed/paused state rather than window focus to determine whether Kiosk is foreground. Opening a dialog no longer hides the rail or causes it to change overlay hosts.
+- Refreshes presentation when the settings dialog closes, without restarting the plugin.
+- Migrates the saved 0.2.8 dashboard option into Show on once. Clock preferences and existing per-item/battery controls are retained.
+- Adds 44 selector combination and action-preservation checks alongside visibility, battery and manifest-limit checks.
 
-Install/update using https://github.com/mortalone/kiosk-satellite-quick-actions in Kiosk Satellite's Plugin Manager. Approve host.control for the Wall Art command if prompted. Existing settings keep their keys.
+Use https://github.com/mortalone/kiosk-satellite-quick-actions to update from Kiosk Satellite.

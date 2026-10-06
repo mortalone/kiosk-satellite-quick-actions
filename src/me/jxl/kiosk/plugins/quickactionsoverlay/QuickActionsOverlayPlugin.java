@@ -75,6 +75,8 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
     private Application application;
     private Application.ActivityLifecycleCallbacks lifecycleCallbacks;
     private Activity currentActivity;
+    private boolean kioskForeground;
+    private final Map<String, Object> configuredSettings = new HashMap<>();
     private BroadcastReceiver dreamReceiver;
 
     private boolean dreaming;
@@ -148,6 +150,7 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
         registerDreamReceiver();
         registerActivityLifecycle();
         currentActivity = findResumedActivity();
+        kioskForeground = currentActivity != null;
         host.subscribe("screensaver.state");
         host.subscribe("screensaver.view");
         readHomeAssistantBaseUrl();
@@ -267,10 +270,21 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
 
     private void applySettings(Map<String, Object> values) {
         manualHidden = false;
+        forcePreview = false;
+        configuredSettings.clear(); configuredSettings.putAll(values);
         readDisplaySettings();
         String target = stringSetting(values, "overlayTarget");
-        showOnKiosk = !"Fotoo only".equals(target);
-        showOnFotoo = !"Kiosk Satellite only".equals(target);
+        int mask = OverlayTarget.mask(target);
+        SharedPreferences preferences = context.getSharedPreferences("quick_actions_preferences", Context.MODE_PRIVATE);
+        if (!preferences.getBoolean("target_migrated", false)) {
+            if (preferences.getBoolean("dashboard", false)) {
+                mask = OverlayTarget.withDashboard(mask, true);
+                configuredSettings.put("overlayTarget", OverlayTarget.name(mask));
+                host.saveSettings(new HashMap<>(configuredSettings));
+            }
+            preferences.edit().putBoolean("target_migrated", true).apply();
+        }
+        setTarget(mask);
 
         String nextPosition = stringSetting(values, "position");
         if (!nextPosition.isEmpty()) position = nextPosition;
@@ -359,10 +373,16 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
                 && p.getBoolean("allow_quick_actions", false);
     }
 
+    private void setTarget(int mask) {
+        showOnDashboard = (mask & 1) != 0;
+        showOnKiosk = (mask & 2) != 0;
+        showOnFotoo = (mask & 4) != 0;
+    }
+
     private void readDisplaySettings() {
         if (context == null) return;
         SharedPreferences p = context.getSharedPreferences("quick_actions_preferences", Context.MODE_PRIVATE);
-        showOnDashboard = p.getBoolean("dashboard", false);
+
         showOnParty = p.getBoolean("party", false);
         clockOnDashboard = p.getBoolean("clock_dashboard", false);
         clockOnKiosk = p.getBoolean("clock_kiosk", false);
@@ -381,7 +401,7 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
         if (host == null || context == null) return;
         if (displayDialog != null) { displayDialog.dismiss(); displayDialog = null; }
         Activity a = activeKioskActivity();
-        boolean inApp = a != null && a.hasWindowFocus();
+        boolean inApp = a != null && kioskForeground;
         Context ui = inApp ? a : new ContextThemeWrapper(context, android.R.style.Theme_Material_Dialog_Alert);
         LinearLayout body = new LinearLayout(ui); body.setOrientation(LinearLayout.VERTICAL);
         body.setPadding(dp(16), dp(8), dp(16), dp(8));
@@ -411,11 +431,16 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
                 .setNegativeButton("Cancel", null).setPositiveButton("Save", (d, which) -> {
                     if (host == null) return;
                     context.getSharedPreferences("quick_actions_preferences", Context.MODE_PRIVATE).edit()
-                            .putBoolean("dashboard", dashboard.isChecked()).putBoolean("party", party.isChecked())
+                            .putBoolean("party", party.isChecked())
                             .putBoolean("clock_dashboard", cDashboard.isChecked()).putBoolean("clock_kiosk", cKiosk.isChecked())
                             .putBoolean("clock_fotoo", cFotoo.isChecked()).putBoolean("clock_date", date.isChecked())
                             .putString("clock_position", positions[position.getSelectedItemPosition()])
                             .putInt("clock_size", size.getProgress() + 18).apply();
+                    int mask = (showOnDashboard ? 1 : 0) | (showOnKiosk ? 2 : 0) | (showOnFotoo ? 4 : 0);
+                    mask = OverlayTarget.withDashboard(mask, dashboard.isChecked());
+                    configuredSettings.put("overlayTarget", OverlayTarget.name(mask));
+                    host.saveSettings(new HashMap<>(configuredSettings));
+                    setTarget(mask);
                     readDisplaySettings(); manualHidden = false; forcePreview = false;
                     hideRail(); hideClock(); updatePresentation();
                     host.status("Display and clock settings saved.", false);
@@ -423,13 +448,16 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
         if (!inApp && dialog.getWindow() != null) dialog.getWindow().setType(Build.VERSION.SDK_INT >= 26
                 ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY : WindowManager.LayoutParams.TYPE_PHONE);
         displayDialog = dialog;
-        dialog.setOnDismissListener(d -> { if (displayDialog == dialog) displayDialog = null; });
+        dialog.setOnDismissListener(d -> {
+            if (displayDialog == dialog) displayDialog = null;
+            main.post(QuickActionsOverlayPlugin.this::updatePresentation);
+        });
         dialog.show();
     }
 
     private int surface() {
         Activity a = activeKioskActivity();
-        boolean foreground = a != null && a.hasWindowFocus();
+        boolean foreground = a != null && kioskForeground;
         View root = a == null ? null : a.findViewById(android.R.id.content);
         boolean party = (root != null && root.findViewWithTag("party-mode:view") != null) || partyPresentationActive();
         boolean blank = "black".equals(kioskScreensaverView) || "blank".equals(kioskScreensaverView);
@@ -438,6 +466,7 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
 
     private void updatePresentation() {
         if (host == null) return;
+        if (displayDialog != null && displayDialog.isShowing()) return;
         if (manualHidden) { hideRail(); hideClock(); return; }
         int surface = surface();
         if (surface != presentedSurface) {
@@ -752,7 +781,7 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
 
     private boolean preferInAppOverlay() {
         Activity a = activeKioskActivity();
-        return !dreaming && !manualFotoo && a != null && a.hasWindowFocus();
+        return !dreaming && !manualFotoo && a != null && kioskForeground;
     }
 
     private boolean addOverlayView(
@@ -870,20 +899,20 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
             @Override public void onActivityStarted(Activity a) {}
             @Override public void onActivityResumed(Activity a) {
                 if (a.getPackageName().equals(context.getPackageName())) {
-                    currentActivity = a; manualFotoo = false;
+                    currentActivity = a; kioskForeground = true; manualFotoo = false;
                 }
                 main.post(QuickActionsOverlayPlugin.this::updatePresentation);
             }
             @Override public void onActivityPaused(Activity a) {
-                if (currentActivity == a) currentActivity = null;
+                if (currentActivity == a) kioskForeground = false;
                 main.post(QuickActionsOverlayPlugin.this::updatePresentation);
             }
             @Override public void onActivityStopped(Activity a) {
-                if (currentActivity == a) currentActivity = null;
+                if (currentActivity == a) kioskForeground = false;
             }
             @Override public void onActivitySaveInstanceState(Activity a, Bundle b) {}
             @Override public void onActivityDestroyed(Activity a) {
-                if (currentActivity == a) currentActivity = null;
+                if (currentActivity == a) { currentActivity = null; kioskForeground = false; }
             }
         };
         application.registerActivityLifecycleCallbacks(lifecycleCallbacks);
@@ -894,7 +923,7 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
         if (a != null && !a.isFinishing() &&
                 (Build.VERSION.SDK_INT < 17 || !a.isDestroyed())) return a;
         a = findResumedActivity();
-        if (a != null) currentActivity = a;
+        if (a != null) { currentActivity = a; kioskForeground = true; }
         return a;
     }
 
@@ -912,7 +941,7 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
             Object activitiesObject = activitiesField.get(thread);
             if (!(activitiesObject instanceof Map)) return null;
 
-            Activity fallback = null;
+
             for (Object record : ((Map<?, ?>) activitiesObject).values()) {
                 if (record == null) continue;
                 Field activityField = record.getClass().getDeclaredField("activity");
@@ -923,10 +952,16 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
                 if (!a.getPackageName().equals(context.getPackageName()) ||
                         a.isFinishing() ||
                         (Build.VERSION.SDK_INT >= 17 && a.isDestroyed())) continue;
-                if (a.hasWindowFocus()) return a;
-                fallback = a;
+                // A dialog may steal focus while the Activity remains resumed.
+                try {
+                    Field paused = record.getClass().getDeclaredField("paused");
+                    paused.setAccessible(true);
+                    if (!paused.getBoolean(record)) return a;
+                } catch (ReflectiveOperationException ignored) {
+                    if (a.hasWindowFocus()) return a;
+                }
             }
-            return fallback;
+            return null;
         } catch (Throwable ignored) {
             return null;
         }

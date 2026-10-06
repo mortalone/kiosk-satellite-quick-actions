@@ -3,7 +3,7 @@
   "apiVersion": 1,
   "id": "quick-actions-overlay",
   "name": "Quick Actions & Clock",
-  "version": "0.2.8",
+  "version": "0.2.9",
   "minAndroidSdk": 26,
   "entryClass": "me.jxl.kiosk.plugins.quickactionsoverlay.QuickActionsOverlayPlugin",
   "description": "Shared Home Assistant actions and optional clock for Kiosk dashboard, screensavers and Fotoo, with battery icons and per-item visibility rules.",
@@ -23,10 +23,15 @@
       "options": [
         "Kiosk Satellite + Fotoo",
         "Kiosk Satellite only",
-        "Fotoo only"
+        "Fotoo only",
+        "Dashboard only",
+        "Dashboard + Kiosk Satellite",
+        "Dashboard + Fotoo",
+        "Dashboard + Kiosk Satellite + Fotoo",
+        "Hidden"
       ],
       "group": "Layout",
-      "description": "Choose which screensavers show the action rail."
+      "description": "Permanent action visibility across dashboard, Kiosk screensaver and Fotoo. Party Mode remains a separate opt-in."
     },
     {
       "key": "position",

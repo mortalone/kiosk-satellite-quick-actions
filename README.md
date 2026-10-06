@@ -115,3 +115,17 @@ visibility rules and all six display/action pairs are retained.
 For HA switching, expose the Open Fotoo with Quick Actions, Attach Quick Actions
 to Fotoo, and Show Wall Art now commands. The ready-made HA package is at:
 https://github.com/mortalone/kiosk-satellite-fotoo-overlay/blob/main/examples/screensaver-mode-package.yaml
+
+
+## 0.2.9: permanent Show on combinations
+
+**Show on** is now the permanent action visibility setting. Select dashboard,
+Kiosk screensaver, Fotoo, any combination, or Hidden. The three original values
+remain valid and retain their meaning. The choice survives plugin/app restarts.
+
+The **Display & clock settings (saved)** action remains available from HA and
+Kiosk. Its dashboard checkbox writes to the same Show on setting; all other
+plugin settings are preserved. Existing saved dashboard preferences migrate once.
+Clock/date options remain in the saved action window. Dialogs no longer control
+foreground visibility through window focus; close the dialog to see the result.
+Party Mode continues to be controlled separately and the clock stays hidden there.
