@@ -137,3 +137,11 @@ Choose **Position → Top center** or **Bottom center** for the action rail. Bot
 The optional clock is already available through **Display & clock settings (saved)** in the plugin commands. Enable **Clock on dashboard**, **Clock on Kiosk screensaver** and/or **Clock on Fotoo**, and choose position, size and whether to show the date. The clock now also supports **Top center** and **Bottom center**, with centered time/date text. Its position is independent of the action rail; avoid selecting overlapping positions. The clock follows the device's time format and updates when the minute changes. It remains hidden during Party Mode.
 
 This release does not modify Party Mode's EQ/DSP controls.
+
+## Home Assistant clock controls (0.2.11)
+
+After updating and starting the plugin, the Kiosk device in HA exposes **Ur på dashboard**, **Ur på Kiosk-screensaver**, **Ur på Fotoo**, **Ur: vis dato** switches and **Ur: placering** select with all eight positions. No helpers, YAML, extra add-on or HA integration are required. The existing Kiosk integration/connection must support SDK 1 plugin entities (the same feature used by Party Mode's controls). Clock size remains available in Display & clock settings.
+
+HA changes and the local dialog use the same saved preferences; local saves also update the HA states. Context switches can be combined. The plugin still hides the clock during Party Mode and when Quick Actions is manually hidden.
+
+If the action rail and clock share a position, they keep a 12 dp gap: at the top the clock goes below the rail, at the bottom it goes above, and for middle side positions it goes below. The offset follows the visible rail height as item visibility, labels and layout change. If the rail disappears, the clock returns to its configured anchor. A screen that cannot fit the full stack needs smaller items/clock or fewer visible items.

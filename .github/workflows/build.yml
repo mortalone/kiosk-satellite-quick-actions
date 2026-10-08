@@ -35,6 +35,11 @@ jobs:
           mkdir -p /tmp/target-test
           javac --release 8 -d /tmp/target-test src/me/jxl/kiosk/plugins/quickactionsoverlay/OverlayTarget.java tests/OverlayTargetTest.java
           java -cp /tmp/target-test me.jxl.kiosk.plugins.quickactionsoverlay.OverlayTargetTest
+      - name: Verify shared clock/action positions
+        run: |
+          mkdir -p /tmp/clock-test
+          javac --release 8 -d /tmp/clock-test src/me/jxl/kiosk/plugins/quickactionsoverlay/ClockPlacement.java tests/ClockPlacementTest.java
+          java -cp /tmp/clock-test me.jxl.kiosk.plugins.quickactionsoverlay.ClockPlacementTest
       - name: Build plugin
         run: python3 tools/build.py --android-platform 35
       - name: Verify battery levels

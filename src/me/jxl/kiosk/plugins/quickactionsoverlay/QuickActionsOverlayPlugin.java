@@ -65,6 +65,9 @@ import java.util.concurrent.Executors;
 
 public final class QuickActionsOverlayPlugin implements KioskPlugin {
     private static final int ITEM_COUNT = 6;
+    private static final String[] CLOCK_POSITIONS = {"Top left", "Top center", "Top right", "Center left", "Center right", "Bottom left", "Bottom center", "Bottom right"};
+    private static final String[] CLOCK_POSITION_NAMES = {"Øverst venstre", "Øverst midt", "Øverst højre", "Midt venstre", "Midt højre", "Nederst venstre", "Nederst midt", "Nederst højre"};
+    private int clockOffset = -1;
 
     private PluginHost host;
     private Context context;
@@ -221,6 +224,12 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
 
     @Override
     public synchronized void onEvent(String event, Map<String, Object> payload) {
+        if (event.equals("switch.clock_dashboard") || event.equals("switch.clock_kiosk") ||
+                event.equals("switch.clock_fotoo") || event.equals("switch.clock_date") || event.equals("select.clock_position")) {
+            final Object value = payload.get(event.startsWith("switch.") ? "on" : "option");
+            main.post(() -> changeClock(event, value));
+            return;
+        }
         if ("ks.screensaver.state".equals(event)) {
             kioskScreensaverActive = Boolean.TRUE.equals(payload.get("active"));
             if (!kioskScreensaverActive) kioskScreensaverView = "";
@@ -250,6 +259,7 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
     @Override
     public synchronized void stop() {
         main.removeCallbacks(presentationTick);
+        removeClockEntities();
         main.post(() -> { if (displayDialog != null) { displayDialog.dismiss(); displayDialog = null; } });
         for (String entity : new HashSet<>(subscriptions)) {
             try { host.unsubscribe("ha.entity." + entity); } catch (Throwable ignored) {}
@@ -330,6 +340,7 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
             hideRail();
             hideClock();
             updatePresentation();
+            publishClockEntities();
         });
     }
 
@@ -392,6 +403,65 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
         clockSize = Math.max(18, Math.min(64, p.getInt("clock_size", 28)));
     }
 
+    private void publishClockEntities() {
+        if (host == null || context == null) return;
+        try {
+            host.publishSwitch("clock_dashboard", "Ur på dashboard", clockOnDashboard);
+            host.publishSwitch("clock_kiosk", "Ur på Kiosk-screensaver", clockOnKiosk);
+            host.publishSwitch("clock_fotoo", "Ur på Fotoo", clockOnFotoo);
+            host.publishSwitch("clock_date", "Ur: vis dato", clockDate);
+            String selected = CLOCK_POSITION_NAMES[2];
+            for (int i = 0; i < CLOCK_POSITIONS.length; i++) if (CLOCK_POSITIONS[i].equals(clockPosition)) selected = CLOCK_POSITION_NAMES[i];
+            host.publishSelect("clock_position", "Ur: placering", CLOCK_POSITION_NAMES, selected);
+        } catch (Throwable error) { host.log("Clock HA controls: " + safeMessage(error)); }
+    }
+
+    private void removeClockEntities() {
+        if (host == null) return;
+        try {
+            for (String key : new String[]{"clock_dashboard", "clock_kiosk", "clock_fotoo", "clock_date"}) host.removeSwitch(key);
+            host.removeSelect("clock_position");
+        } catch (Throwable ignored) {}
+    }
+
+    private void changeClock(String event, Object value) {
+        if (host == null || context == null) return;
+        SharedPreferences.Editor edit = context.getSharedPreferences("quick_actions_preferences", Context.MODE_PRIVATE).edit();
+        if (event.startsWith("switch.")) {
+            if (!(value instanceof Boolean)) { publishClockEntities(); return; }
+            edit.putBoolean(event.substring(7), (Boolean) value);
+        } else {
+            String position = null;
+            for (int i = 0; i < CLOCK_POSITIONS.length; i++) if (CLOCK_POSITION_NAMES[i].equals(value)) position = CLOCK_POSITIONS[i];
+            if (position == null) { publishClockEntities(); return; }
+            edit.putString("clock_position", position);
+        }
+        edit.apply(); readDisplaySettings(); manualHidden = false; forcePreview = false;
+        hideClock(); updatePresentation(); publishClockEntities();
+    }
+
+    private void positionClock() {
+        if (clock == null) return;
+        int railHeight = rail == null ? 0 : rail.getHeight();
+        int offset = ClockPlacement.offset(clockPosition, position, rail != null, railHeight, clock.getHeight(), dp(12));
+        if (offset == clockOffset) return;
+        int gravity = gravityForPosition(clockPosition), edge = dp(16);
+        try {
+            ViewGroup.LayoutParams layout = clock.getLayoutParams();
+            if (layout instanceof FrameLayout.LayoutParams) {
+                FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) layout;
+                params.topMargin = (gravity & Gravity.TOP) == Gravity.TOP ? edge + offset : clockPosition.startsWith("Center ") ? offset : 0;
+                params.bottomMargin = (gravity & Gravity.BOTTOM) == Gravity.BOTTOM ? edge + offset : 0;
+                clock.setLayoutParams(params);
+            } else if (layout instanceof WindowManager.LayoutParams && windowManager != null) {
+                WindowManager.LayoutParams params = (WindowManager.LayoutParams) layout;
+                params.y = clockPosition.startsWith("Center ") ? offset : edge + offset;
+                windowManager.updateViewLayout(clock, params);
+            } else return;
+            clockOffset = offset;
+        } catch (Throwable ignored) {}
+    }
+
     private CheckBox displayCheck(Context ui, LinearLayout body, String text, boolean value) {
         CheckBox check = new CheckBox(ui); check.setText(text); check.setChecked(value);
         body.addView(check); return check;
@@ -413,7 +483,7 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
         CheckBox date = displayCheck(ui, body, "Show clock date", clockDate);
         TextView note = new TextView(ui); note.setText("The clock is always hidden in Party Mode. Keep only one clock on the screensaver."); body.addView(note);
         TextView positionLabel = new TextView(ui); positionLabel.setText("Clock position"); body.addView(positionLabel);
-        String[] positions = {"Top left", "Top center", "Top right", "Center left", "Center right", "Bottom left", "Bottom center", "Bottom right"};
+        String[] positions = CLOCK_POSITIONS;
         Spinner position = new Spinner(ui);
         ArrayAdapter<String> adapter = new ArrayAdapter<>(ui, android.R.layout.simple_spinner_item, positions);
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item); position.setAdapter(adapter);
@@ -442,7 +512,7 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
                     host.saveSettings(new HashMap<>(configuredSettings));
                     setTarget(mask);
                     readDisplaySettings(); manualHidden = false; forcePreview = false;
-                    hideRail(); hideClock(); updatePresentation();
+                    hideRail(); hideClock(); updatePresentation(); publishClockEntities();
                     host.status("Display and clock settings saved.", false);
                 }).create();
         if (!inApp && dialog.getWindow() != null) dialog.getWindow().setType(Build.VERSION.SDK_INT >= 26
@@ -488,6 +558,7 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
         if (clock != null || context == null) return;
         TextView view = new TextView(context);
         view.setTag("quick-actions-overlay:clock");
+        view.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> positionClock());
         view.setTextColor(Color.WHITE);
         view.setTextSize(clockSize);
         view.setGravity(clockPosition.endsWith("center") ? Gravity.CENTER_HORIZONTAL : clockPosition.endsWith("left") ? Gravity.LEFT : Gravity.RIGHT);
@@ -508,10 +579,11 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
         String value = DateFormat.getTimeFormat(context).format(now);
         if (clockDate) value += "\n" + DateFormat.getMediumDateFormat(context).format(now);
         if (!value.equals(clockText)) { clock.setText(value); clockText = value; }
+        positionClock();
     }
 
     private void hideClock() {
-        View view = clock; clock = null; clockText = "";
+        View view = clock; clock = null; clockText = ""; clockOffset = -1;
         removeOverlayView(view);
     }
 
@@ -520,6 +592,7 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
 
         rail = new LinearLayout(context);
         rail.setTag("quick-actions-overlay:rail");
+        rail.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> positionClock());
         rail.setOrientation("Horizontal".equals(layout)
                 ? LinearLayout.HORIZONTAL : LinearLayout.VERTICAL);
         rail.setGravity(Gravity.CENTER);
