@@ -12,7 +12,7 @@ Install in **Kiosk Satellite → Plugin Manager → Add plugin** using:
 - Separate display entity and action entity per item.
 - Uses `entity_picture` automatically for person entities.
 - Touchable scripts, buttons, automations, scenes, lights, switches, input_booleans and fans.
-- Vertical or horizontal rail with six anchor positions.
+- Vertical or horizontal rail with eight anchor positions, including **Top center** and **Bottom center**.
 
 Example: display `person.malte`, action `script.kald_pa_malte`.
 
@@ -129,3 +129,11 @@ plugin settings are preserved. Existing saved dashboard preferences migrate once
 Clock/date options remain in the saved action window. Dialogs no longer control
 foreground visibility through window focus; close the dialog to see the result.
 Party Mode continues to be controlled separately and the clock stays hidden there.
+
+## Center positions and clock (0.2.10)
+
+Choose **Position → Top center** or **Bottom center** for the action rail. Both layouts support these positions; horizontal layout is usually convenient at the top/bottom. Existing saved positions remain unchanged.
+
+The optional clock is already available through **Display & clock settings (saved)** in the plugin commands. Enable **Clock on dashboard**, **Clock on Kiosk screensaver** and/or **Clock on Fotoo**, and choose position, size and whether to show the date. The clock now also supports **Top center** and **Bottom center**, with centered time/date text. Its position is independent of the action rail; avoid selecting overlapping positions. The clock follows the device's time format and updates when the minute changes. It remains hidden during Party Mode.
+
+This release does not modify Party Mode's EQ/DSP controls.

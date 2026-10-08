@@ -413,7 +413,7 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
         CheckBox date = displayCheck(ui, body, "Show clock date", clockDate);
         TextView note = new TextView(ui); note.setText("The clock is always hidden in Party Mode. Keep only one clock on the screensaver."); body.addView(note);
         TextView positionLabel = new TextView(ui); positionLabel.setText("Clock position"); body.addView(positionLabel);
-        String[] positions = {"Top left", "Top right", "Center left", "Center right", "Bottom left", "Bottom right"};
+        String[] positions = {"Top left", "Top center", "Top right", "Center left", "Center right", "Bottom left", "Bottom center", "Bottom right"};
         Spinner position = new Spinner(ui);
         ArrayAdapter<String> adapter = new ArrayAdapter<>(ui, android.R.layout.simple_spinner_item, positions);
         adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item); position.setAdapter(adapter);
@@ -490,7 +490,7 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
         view.setTag("quick-actions-overlay:clock");
         view.setTextColor(Color.WHITE);
         view.setTextSize(clockSize);
-        view.setGravity(Gravity.RIGHT);
+        view.setGravity(clockPosition.endsWith("center") ? Gravity.CENTER_HORIZONTAL : clockPosition.endsWith("left") ? Gravity.LEFT : Gravity.RIGHT);
         view.setPadding(dp(12), dp(8), dp(12), dp(8));
         view.setBackground(cardBackground(0xB7222328, 18));
         view.setAlpha(opacity / 100f);
@@ -844,10 +844,12 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
     }
 
     private int gravityForPosition(String p) {
+        if ("Top center".equals(p)) return Gravity.TOP | Gravity.CENTER_HORIZONTAL;
         if ("Top right".equals(p)) return Gravity.TOP | Gravity.RIGHT;
         if ("Center left".equals(p)) return Gravity.CENTER_VERTICAL | Gravity.LEFT;
         if ("Center right".equals(p)) return Gravity.CENTER_VERTICAL | Gravity.RIGHT;
         if ("Bottom left".equals(p)) return Gravity.BOTTOM | Gravity.LEFT;
+        if ("Bottom center".equals(p)) return Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
         if ("Bottom right".equals(p)) return Gravity.BOTTOM | Gravity.RIGHT;
         return Gravity.TOP | Gravity.LEFT;
     }

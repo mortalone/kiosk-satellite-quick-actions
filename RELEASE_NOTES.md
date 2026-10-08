@@ -1,10 +1,8 @@
-Quick Actions & Clock 0.2.9
+Quick Actions & Clock 0.2.10
 
-- Expands the permanent Show on selector to all dashboard/Kiosk/Fotoo combinations and Hidden, while preserving the three existing option values.
-- The Display & clock settings action remains available. Saving its dashboard checkbox updates the same Show on setting and preserves the other configured actions.
-- Uses Activity resumed/paused state rather than window focus to determine whether Kiosk is foreground. Opening a dialog no longer hides the rail or causes it to change overlay hosts.
-- Refreshes presentation when the settings dialog closes, without restarting the plugin.
-- Migrates the saved 0.2.8 dashboard option into Show on once. Clock preferences and existing per-item/battery controls are retained.
-- Adds 44 selector combination and action-preservation checks alongside visibility, battery and manifest-limit checks.
+- Adds Top center and Bottom center for Quick Actions on the dashboard, Kiosk screensaver and Fotoo. Works with horizontal and vertical rails.
+- Adds the same positions to the existing optional clock; clock time/date text follows the selected alignment.
+- Retains existing settings, action visibility rules and clock preferences. Clock remains hidden during Party Mode.
+- Enable the clock with Display & clock settings (saved), then select its display contexts, position, date and size.
 
-Use https://github.com/mortalone/kiosk-satellite-quick-actions to update from Kiosk Satellite.
+Update from https://github.com/mortalone/kiosk-satellite-quick-actions in Kiosk Satellite Plugin Manager. No Party Mode update is required.
