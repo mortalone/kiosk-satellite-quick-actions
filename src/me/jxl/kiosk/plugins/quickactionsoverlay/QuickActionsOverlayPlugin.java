@@ -31,6 +31,7 @@ import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.IBinder;
 import android.os.Looper;
 import android.provider.Settings;
 import android.view.Gravity;
@@ -100,6 +101,7 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
     private int clockSize = 28;
     private TextView clock;
     private int presentedSurface = -1;
+    private IBinder dashboardWindowToken;
     private long lastRulesMinute = -1;
     private AlertDialog displayDialog;
     private String clockText = "";
@@ -539,10 +541,17 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
         if (displayDialog != null && displayDialog.isShowing()) return;
         if (manualHidden) { hideRail(); hideClock(); return; }
         int surface = surface();
-        if (surface != presentedSurface) {
+        Activity activity = activeKioskActivity();
+        IBinder token = surface == OverlayVisibility.DASHBOARD && activity != null
+                ? activity.getWindow().getDecorView().getWindowToken() : null;
+        // A recreated Activity needs new child windows even when the display
+        // context is still Dashboard. Retry normally while its token is absent.
+        if (surface != presentedSurface || token != dashboardWindowToken) {
             hideRail(); hideClock();
             presentedSurface = surface;
+            dashboardWindowToken = token;
         }
+        if (surface == OverlayVisibility.DASHBOARD && token == null) return;
         boolean preview = forcePreview && surface != OverlayVisibility.PARTY;
         boolean actions = preview || OverlayVisibility.visible(surface, showOnDashboard, showOnKiosk, showOnFotoo, showOnParty || partyAllowsActions());
         boolean time = OverlayVisibility.visible(surface, clockOnDashboard, clockOnKiosk, clockOnFotoo, false);
@@ -859,7 +868,8 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
 
     private boolean addOverlayView(
             View view, int width, int height, int gravity, int edge) {
-        if (preferInAppOverlay()) {
+        boolean dashboard = presentedSurface == OverlayVisibility.DASHBOARD;
+        if (!dashboard && preferInAppOverlay()) {
             Activity activity = activeKioskActivity();
             if (activity != null) {
                 View content = activity.findViewById(android.R.id.content);
@@ -880,12 +890,18 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
         }
 
         if (windowManager == null) return false;
+        // A dashboard WebView uses Flutter hybrid composition. Views inserted
+        // in its Activity content can be covered when that renderer attaches.
+        // A token-bound panel is composed above the Activity's content, stays
+        // scoped to Kiosk, and does not intercept touches outside its bounds.
+        if (dashboard && dashboardWindowToken == null) return false;
+        int type = dashboard ? WindowManager.LayoutParams.TYPE_APPLICATION_PANEL
+                : Build.VERSION.SDK_INT >= 26 ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
+                : WindowManager.LayoutParams.TYPE_PHONE;
         WindowManager.LayoutParams params = new WindowManager.LayoutParams(
                 width,
                 height,
-                Build.VERSION.SDK_INT >= 26
-                        ? WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY
-                        : WindowManager.LayoutParams.TYPE_PHONE,
+                type,
                 WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
                         | WindowManager.LayoutParams.FLAG_NOT_TOUCH_MODAL
                         | WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN,
@@ -893,6 +909,7 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
         if ("quick-actions-overlay:clock".equals(view.getTag())) {
             params.flags |= WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE;
         }
+        if (dashboard) params.token = dashboardWindowToken;
         params.gravity = gravity;
         params.x = ((gravity & Gravity.LEFT) == Gravity.LEFT ||
                 (gravity & Gravity.RIGHT) == Gravity.RIGHT) ? edge : 0;

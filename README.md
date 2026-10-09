@@ -145,3 +145,7 @@ After updating and starting the plugin, the Kiosk device in HA exposes **Ur på 
 HA changes and the local dialog use the same saved preferences; local saves also update the HA states. Context switches can be combined. The plugin still hides the clock during Party Mode and when Quick Actions is manually hidden.
 
 If the action rail and clock share a position, they keep a 12 dp gap: at the top the clock goes below the rail, at the bottom it goes above, and for middle side positions it goes below. The offset follows the visible rail height as item visibility, labels and layout change. If the rail disappears, the clock returns to its configured anchor. A screen that cannot fit the full stack needs smaller items/clock or fewer visible items.
+
+## Dashboard overlay rendering (0.2.12)
+
+Both dashboard actions and the clock use token-bound Android application panel windows. This keeps them above Kiosk's hybrid-composition WebView, including Music Home, rather than inserting them into the Activity content tree. The panels belong to Kiosk's Activity, have no input focus, and leave touches outside their bounds to the dashboard. The clock is non-touchable. A recreated Activity receives new panels; startup waits for an attached window. Existing clock/action position settings and collision spacing still apply.

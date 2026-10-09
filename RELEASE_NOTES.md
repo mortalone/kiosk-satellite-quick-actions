@@ -1,9 +1,9 @@
-Quick Actions & Clock 0.2.11
+Quick Actions & Clock 0.2.12
 
-- Adds HA switches for the clock on dashboard, Kiosk screensaver and Fotoo, plus clock date.
-- Adds an HA clock-position select with all eight positions, including top/bottom center.
-- HA and the existing local settings dialog share persisted clock preferences and report changes in both directions.
-- Keeps the clock clear of the visible Quick Actions rail when both use the same anchor; responds to rail size/visibility changes on Kiosk and Fotoo.
-- Clock size remains in the local dialog; clock remains hidden in Party Mode. Party EQ/DSP controls are unchanged.
+- Moves both dashboard Quick Actions and the dashboard clock into Activity-bound panel windows, above the hybrid-composition WebView. They no longer rely on the dashboard content view staying above Flutter's renderer.
+- Reattaches both panels when Kiosk recreates its Activity, and waits for a valid window token during startup.
+- Keeps the existing HA switches, clock position and shared-position spacing. Kiosk screensaver, Fotoo and Party visibility rules remain unchanged.
 
-Update from https://github.com/mortalone/kiosk-satellite-quick-actions in Kiosk Satellite Plugin Manager, then find the clock entities under your Kiosk device in HA.
+Update Quick Actions & Clock from https://github.com/mortalone/kiosk-satellite-quick-actions in Kiosk Satellite Plugin Manager. Clock on dashboard uses the existing HA switch; the action rail uses Show on: Dashboard + Kiosk Satellite (or another combination including Dashboard).
+
+Validation: Android build and existing visibility, target, battery and clock-placement tests in GitHub Actions. The affected Raspberry Pi dashboard still requires device verification after installation.

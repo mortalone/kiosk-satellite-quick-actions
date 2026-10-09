@@ -3,7 +3,7 @@
   "apiVersion": 1,
   "id": "quick-actions-overlay",
   "name": "Quick Actions & Clock",
-  "version": "0.2.11",
+  "version": "0.2.12",
   "minAndroidSdk": 26,
   "entryClass": "me.jxl.kiosk.plugins.quickactionsoverlay.QuickActionsOverlayPlugin",
   "description": "Shared Home Assistant actions and optional clock for Kiosk dashboard, screensavers and Fotoo, with battery icons and per-item visibility rules.",
