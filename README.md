@@ -8,7 +8,7 @@ Install in **Kiosk Satellite → Plugin Manager → Add plugin** using:
 
 ## Main features
 
-- Up to six Home Assistant display/action items.
+- Up to four Home Assistant display/action items.
 - Separate display entity and action entity per item.
 - Uses `entity_picture` automatically for person entities.
 - Touchable scripts, buttons, automations, scenes, lights, switches, input_booleans and fans.
@@ -29,7 +29,7 @@ as `4,1,2,3` is also valid; omitted slots are appended automatically.
 
 Optional visibility rules go after `#`. Separate rules with semicolons:
 
-`1,2,3,4,5,6 # 1=binary_sensor.motion|Active;3=sensor.lux|Numeric below|30`
+`1,2,3,4 # 1=binary_sensor.motion|Active;3=sensor.lux|Numeric below|30`
 
 Each rule is:
 
@@ -61,9 +61,9 @@ The existing **Item order** setting from 0.1.1 remains available.
 
 ## 0.2.2: manifest-limit fix
 
-Kiosk Satellite allows at most 20 settings per plugin. The six independent
+Kiosk Satellite allows at most 20 settings per plugin. The four independent
 visibility rules are therefore encoded compactly inside **Item order &
-visibility**, keeping all six display entities, all six separate action
+visibility**, keeping all four display entities, all four separate action
 entities, layout, size, spacing, opacity and labels available.
 
 
@@ -110,7 +110,7 @@ hidden in Party Mode. Leave the Kiosk screensaver clock disabled here if you wan
 to retain the existing built-in clock without a duplicate.
 
 The plugin still declares exactly 20 normal settings. Battery color, order,
-visibility rules and all six display/action pairs are retained.
+visibility rules and all four display/action pairs are retained.
 
 For HA switching, expose the Open Fotoo with Quick Actions, Attach Quick Actions
 to Fotoo, and Show Wall Art now commands. The ready-made HA package is at:
@@ -149,3 +149,7 @@ If the action rail and clock share a position, they keep a 12 dp gap: at the top
 ## Dashboard overlay rendering (0.2.12)
 
 Both dashboard actions and the clock use token-bound Android application panel windows. This keeps them above Kiosk's hybrid-composition WebView, including Music Home, rather than inserting them into the Activity content tree. The panels belong to Kiosk's Activity, have no input focus, and leave touches outside their bounds to the dashboard. The clock is non-touchable. A recreated Activity receives new panels; startup waits for an attached window. Existing clock/action position settings and collision spacing still apply.
+
+## Compact actions (0.2.13)
+
+Button height replaces Picture size. It controls the entire button (40–132 dp), including picture, padding, text size and label width. The default 76 dp retains the previous default size; try 44–48 dp on the dashboard. Four display/action pairs are available; slots 5 and 6 are no longer used. Legacy Picture size is converted to total height when no new height value is provided.

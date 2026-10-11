@@ -65,7 +65,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public final class QuickActionsOverlayPlugin implements KioskPlugin {
-    private static final int ITEM_COUNT = 6;
+    private static final int ITEM_COUNT = 4;
     private static final String[] CLOCK_POSITIONS = {"Top left", "Top center", "Top right", "Center left", "Center right", "Bottom left", "Bottom center", "Bottom right"};
     private static final String[] CLOCK_POSITION_NAMES = {"Øverst venstre", "Øverst midt", "Øverst højre", "Midt venstre", "Midt højre", "Nederst venstre", "Nederst midt", "Nederst højre"};
     private int clockOffset = -1;
@@ -116,12 +116,12 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
 
     private String position = "Center left";
     private String layout = "Vertical";
-    private int itemSizeDp = 64;
+    private int buttonHeightDp = 76;
     private int spacingDp = 8;
     private int opacity = 90;
     private boolean showLabels = true;
     private boolean coloredBattery;
-    private int[] itemOrder = new int[] {0, 1, 2, 3, 4, 5};
+    private int[] itemOrder = new int[] {0, 1, 2, 3};
     private String haBaseUrl = "";
 
     private final String[] displayEntities = new String[ITEM_COUNT];
@@ -302,7 +302,8 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
         if (!nextPosition.isEmpty()) position = nextPosition;
         String nextLayout = stringSetting(values, "layout");
         if (!nextLayout.isEmpty()) layout = nextLayout;
-        itemSizeDp = intSetting(values, "itemSize", 64, 48, 120);
+        buttonHeightDp = intSetting(values, "buttonHeight",
+                intSetting(values, "itemSize", 64, 48, 120) + 12, 40, 132);
         spacingDp = intSetting(values, "spacing", 8, 0, 24);
         opacity = intSetting(values, "opacity", 90, 30, 100);
         showLabels = values.get("showLabels") == null ||
@@ -616,29 +617,29 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
             LinearLayout item = new LinearLayout(context);
             item.setOrientation(LinearLayout.HORIZONTAL);
             item.setGravity(Gravity.CENTER_VERTICAL);
-            int pad = dp(6);
+            int pad = dp(Math.max(3, Math.min(10, Math.round(buttonHeightDp * 6f / 76f))));
             item.setPadding(pad, pad, pad, pad);
             item.setBackground(cardBackground(0xC7222328, 999));
             item.setClickable(true);
             item.setOnClickListener(v -> performAction(index));
 
             LeadingView leading = new LeadingView(context);
-            int avatarSize = dp(itemSizeDp);
+            int avatarSize = dp(buttonHeightDp) - 2 * pad;
             item.addView(leading, new LinearLayout.LayoutParams(avatarSize, avatarSize));
 
             TextView label = new TextView(context);
             label.setTextColor(Color.WHITE);
-            label.setTextSize(14);
+            label.setTextSize(Math.max(11f, Math.min(14f, buttonHeightDp * 14f / 76f)));
             label.setMaxLines(2);
             label.setPadding(dp(8), 0, dp(6), 0);
             if (showLabels) {
                 item.addView(label, new LinearLayout.LayoutParams(
-                        dp(130), ViewGroup.LayoutParams.WRAP_CONTENT));
+                        dp(Math.max(72, Math.round(buttonHeightDp * 130f / 76f))), ViewGroup.LayoutParams.WRAP_CONTENT));
             }
 
             LinearLayout.LayoutParams itemParams = new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.WRAP_CONTENT,
-                    avatarSize + dp(12));
+                    dp(buttonHeightDp));
             if ("Horizontal".equals(layout)) itemParams.rightMargin = dp(spacingDp);
             else itemParams.bottomMargin = dp(spacingDp);
             rail.addView(item, itemParams);
@@ -1185,7 +1186,7 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
     }
 
     private static int[] parseItemOrder(String raw) {
-        int[] fallback = new int[] {0, 1, 2, 3, 4, 5};
+        int[] fallback = new int[] {0, 1, 2, 3};
         if (raw == null || raw.trim().isEmpty()) return fallback;
 
         int marker = raw.indexOf('#');
