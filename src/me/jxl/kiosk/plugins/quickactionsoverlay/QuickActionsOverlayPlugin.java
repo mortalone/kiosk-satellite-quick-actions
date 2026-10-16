@@ -120,6 +120,7 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
     private int spacingDp = 8;
     private int opacity = 90;
     private boolean showLabels = true;
+    private boolean smartVisibility = false;
     private boolean coloredBattery;
     private int[] itemOrder = new int[] {0, 1, 2, 3};
     private String haBaseUrl = "";
@@ -308,6 +309,7 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
         opacity = intSetting(values, "opacity", 90, 30, 100);
         showLabels = values.get("showLabels") == null ||
                 Boolean.TRUE.equals(values.get("showLabels"));
+        smartVisibility = Boolean.TRUE.equals(values.get("smartVisibility"));
         String itemRules = stringSetting(values, "itemOrder");
         itemOrder = parseItemOrder(itemRules);
         parseVisibilityRules(itemRules);
@@ -673,7 +675,7 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
             String entity = displayEntities[item.index];
             EntitySnapshot snapshot = snapshots.get(entity);
             if (snapshot == null) {
-                item.label.setText(entity);
+                item.label.setText(entity + "\nUkendt");
                 continue;
             }
 
@@ -686,14 +688,7 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
             int batteryLevel = battery ? BatteryLevel.parse(state) : -1;
             String badge = percentageBadge(state, unit, deviceClass);
 
-            String displayState = state;
-            if (!state.isEmpty() &&
-                    !"unknown".equalsIgnoreCase(state) &&
-                    !"unavailable".equalsIgnoreCase(state) &&
-                    !unit.isEmpty() &&
-                    !state.endsWith(unit)) {
-                displayState = state + ("%".equals(unit) ? " %" : " " + unit);
-            }
+            String displayState = EntityPresentation.text(entity, state, deviceClass, unit);
 
             // Batteries show a filled icon and one percentage beside it.
             // Other percentage sensors keep the number inside the circle.
@@ -723,8 +718,12 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
 
     private boolean itemVisible(int index) {
         String condition = visibilityConditions[index];
-        if (condition == null || condition.isEmpty() || "Always".equals(condition)) {
-            return true;
+        if ("Always".equals(condition)) return true;
+        if (condition == null || condition.isEmpty()) {
+            EntitySnapshot display = snapshots.get(displayEntities[index]);
+            return EntityPresentation.visible(smartVisibility, displayEntities[index], actionEntities[index],
+                    display == null ? null : display.state,
+                    display == null ? "" : attr(display.attributes, "device_class", ""));
         }
         String value = visibilityValues[index] == null ? "" : visibilityValues[index].trim();
 
@@ -1123,7 +1122,7 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
     private void parseVisibilityRules(String raw) {
         for (int i = 0; i < ITEM_COUNT; i++) {
             visibilityEntities[i] = "";
-            visibilityConditions[i] = "Always";
+            visibilityConditions[i] = "";
             visibilityValues[i] = "";
         }
 

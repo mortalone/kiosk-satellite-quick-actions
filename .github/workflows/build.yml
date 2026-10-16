@@ -40,6 +40,11 @@ jobs:
           mkdir -p /tmp/clock-test
           javac --release 8 -d /tmp/clock-test src/me/jxl/kiosk/plugins/quickactionsoverlay/ClockPlacement.java tests/ClockPlacementTest.java
           java -cp /tmp/clock-test me.jxl.kiosk.plugins.quickactionsoverlay.ClockPlacementTest
+      - name: Verify smart visibility and readable states
+        run: |
+          mkdir -p /tmp/entity-test
+          javac --release 8 -encoding UTF-8 -d /tmp/entity-test src/me/jxl/kiosk/plugins/quickactionsoverlay/EntityPresentation.java tests/EntityPresentationTest.java
+          java -cp /tmp/entity-test me.jxl.kiosk.plugins.quickactionsoverlay.EntityPresentationTest
       - name: Build plugin
         run: python3 tools/build.py --android-platform 35
       - name: Verify battery levels

@@ -153,3 +153,22 @@ Both dashboard actions and the clock use token-bound Android application panel w
 ## Compact actions (0.2.13)
 
 Button height replaces Picture size. It controls the entire button (40–132 dp), including picture, padding, text size and label width. The default 76 dp retains the previous default size; try 44–48 dp on the dashboard. Four display/action pairs are available; slots 5 and 6 are no longer used. Legacy Picture size is converted to total height when no new height value is provided.
+
+## Smart visibility and Danish state labels (0.2.14)
+
+Enable **Smart synlighed** in the normal plugin settings (off by default; 17 settings total).
+Persons are hidden outside home, including named zones, even with a separate call script.
+Unknown/unavailable persons remain visible with an honest status. Lights, switches,
+fans, scripts, scenes, buttons and media players remain visible in every state.
+Door/window, motion/presence, leak/smoke/gas/problem/safety/tamper binary sensors
+hide only when off and used solely for status. A separate action keeps them visible.
+Numeric sensors and battery percentages remain visible without guessed thresholds.
+Existing explicit per-item rules take precedence; `1=person.example|Always` can
+exempt an item from smart visibility. Surface visibility settings still apply.
+
+Readable Danish labels are always enabled: Hjemme/Ude, Tændt/Slukket,
+Åben/Lukket, Afspiller/På pause, Ukendt/Utilgængelig, etc. Named zones and
+unrecognized states retain their original value. Scripts show Kører while active;
+idle scripts and scene/button timestamps do not add a misleading state line.
+Display pictures, action targets and numeric units are preserved. Hidden items
+collapse automatically and return on live entity updates.
