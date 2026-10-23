@@ -184,3 +184,12 @@ the rarely adjusted `opacity` and `spacing` settings have been migrated from the
 - **Display & clock settings (saved)**: The on-device dialog includes interactive seekbars for action rail opacity (30–100%) and spacing (0–24 dp).
 - Existing saved values in plugin settings or preferences are migrated seamlessly on update.
 
+## Direct entity entry and full domain support (0.2.16)
+
+All display and action entity settings are converted to direct text fields (`string`).
+This bypasses Kiosk Satellite's built-in entity picker modal which only queries actionable
+domains and excludes generic `sensor.*` states. You can now freely enter or paste any
+valid entity ID, including car battery percentages (`sensor.citroen_batteri`,
+`sensor.lsjwx4098tn028453_soc`), temperature and lux sensors, persons, scripts or switches.
+
+

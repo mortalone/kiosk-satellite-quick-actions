@@ -3,7 +3,7 @@
   "apiVersion": 1,
   "id": "quick-actions-overlay",
   "name": "Quick Actions & Clock",
-  "version": "0.2.15",
+  "version": "0.2.16",
   "minAndroidSdk": 26,
   "entryClass": "me.jxl.kiosk.plugins.quickactionsoverlay.QuickActionsOverlayPlugin",
   "description": "Shared Home Assistant actions and optional clock for Kiosk dashboard, screensavers and Fotoo, with up to six items, battery icons, Danish HA controls and per-item visibility rules.",
@@ -102,15 +102,15 @@
     },
     {
       "key": "item1Entity",
-      "type": "entity",
+      "type": "string",
       "title": "Item 1 display entity",
       "default": "",
       "group": "Actions",
-      "description": "Entity used for picture, name and state."
+      "description": "Entity used for picture, name and state (e.g. person.malte, sensor.citroen_batteri)."
     },
     {
       "key": "item1Action",
-      "type": "entity",
+      "type": "string",
       "title": "Item 1 action entity",
       "default": "",
       "group": "Actions",
@@ -118,7 +118,7 @@
     },
     {
       "key": "item2Entity",
-      "type": "entity",
+      "type": "string",
       "title": "Item 2 display entity",
       "default": "",
       "group": "Actions",
@@ -126,7 +126,7 @@
     },
     {
       "key": "item2Action",
-      "type": "entity",
+      "type": "string",
       "title": "Item 2 action entity",
       "default": "",
       "group": "Actions",
@@ -134,7 +134,7 @@
     },
     {
       "key": "item3Entity",
-      "type": "entity",
+      "type": "string",
       "title": "Item 3 display entity",
       "default": "",
       "group": "Actions",
@@ -142,7 +142,7 @@
     },
     {
       "key": "item3Action",
-      "type": "entity",
+      "type": "string",
       "title": "Item 3 action entity",
       "default": "",
       "group": "Actions",
@@ -150,7 +150,7 @@
     },
     {
       "key": "item4Entity",
-      "type": "entity",
+      "type": "string",
       "title": "Item 4 display entity",
       "default": "",
       "group": "Actions",
@@ -158,7 +158,7 @@
     },
     {
       "key": "item4Action",
-      "type": "entity",
+      "type": "string",
       "title": "Item 4 action entity",
       "default": "",
       "group": "Actions",
@@ -166,15 +166,15 @@
     },
     {
       "key": "item5Entity",
-      "type": "entity",
+      "type": "string",
       "title": "Item 5 display entity",
       "default": "",
       "group": "Actions",
-      "description": "Entity used for picture, name and state."
+      "description": "Entity used for picture, name and state (e.g. sensor.citroen_batteri)."
     },
     {
       "key": "item5Action",
-      "type": "entity",
+      "type": "string",
       "title": "Item 5 action entity",
       "default": "",
       "group": "Actions",
@@ -182,15 +182,15 @@
     },
     {
       "key": "item6Entity",
-      "type": "entity",
+      "type": "string",
       "title": "Item 6 display entity",
       "default": "",
       "group": "Actions",
-      "description": "Entity used for picture, name and state."
+      "description": "Entity used for picture, name and state (e.g. sensor.lsjwx4098tn028453_soc)."
     },
     {
       "key": "item6Action",
-      "type": "entity",
+      "type": "string",
       "title": "Item 6 action entity",
       "default": "",
       "group": "Actions",
