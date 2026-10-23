@@ -65,9 +65,12 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public final class QuickActionsOverlayPlugin implements KioskPlugin {
-    private static final int ITEM_COUNT = 4;
+    private static final int ITEM_COUNT = 6;
     private static final String[] CLOCK_POSITIONS = {"Top left", "Top center", "Top right", "Center left", "Center right", "Bottom left", "Bottom center", "Bottom right"};
     private static final String[] CLOCK_POSITION_NAMES = {"Øverst venstre", "Øverst midt", "Øverst højre", "Midt venstre", "Midt højre", "Nederst venstre", "Nederst midt", "Nederst højre"};
+    private static final String[] OPACITY_OPTIONS = {"100%", "95%", "90%", "85%", "80%", "75%", "70%", "60%", "50%", "40%", "30%"};
+    private static final String[] SPACING_OPTIONS = {"0 dp", "2 dp", "4 dp", "6 dp", "8 dp", "10 dp", "12 dp", "16 dp", "20 dp", "24 dp"};
+    private static final String[] LAYOUT_OPTIONS = {"Lodret", "Vandret"};
     private int clockOffset = -1;
 
     private PluginHost host;
@@ -122,7 +125,7 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
     private boolean showLabels = true;
     private boolean smartVisibility = false;
     private boolean coloredBattery;
-    private int[] itemOrder = new int[] {0, 1, 2, 3};
+    private int[] itemOrder = new int[] {0, 1, 2, 3, 4, 5};
     private String haBaseUrl = "";
 
     private final String[] displayEntities = new String[ITEM_COUNT];
@@ -233,6 +236,13 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
             main.post(() -> changeClock(event, value));
             return;
         }
+        if (event.equals("select.actions_position") || event.equals("select.actions_layout") ||
+                event.equals("switch.actions_show_labels") || event.equals("select.actions_opacity") ||
+                event.equals("select.actions_spacing")) {
+            final Object value = payload.get(event.startsWith("switch.") ? "on" : "option");
+            main.post(() -> changeActionSetting(event, value));
+            return;
+        }
         if ("ks.screensaver.state".equals(event)) {
             kioskScreensaverActive = Boolean.TRUE.equals(payload.get("active"));
             if (!kioskScreensaverActive) kioskScreensaverView = "";
@@ -263,6 +273,7 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
     public synchronized void stop() {
         main.removeCallbacks(presentationTick);
         removeClockEntities();
+        removeActionEntities();
         main.post(() -> { if (displayDialog != null) { displayDialog.dismiss(); displayDialog = null; } });
         for (String entity : new HashSet<>(subscriptions)) {
             try { host.unsubscribe("ha.entity." + entity); } catch (Throwable ignored) {}
@@ -299,16 +310,51 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
         }
         setTarget(mask);
 
-        String nextPosition = stringSetting(values, "position");
-        if (!nextPosition.isEmpty()) position = nextPosition;
-        String nextLayout = stringSetting(values, "layout");
-        if (!nextLayout.isEmpty()) layout = nextLayout;
+        SharedPreferences prefs = context != null
+                ? context.getSharedPreferences("quick_actions_preferences", Context.MODE_PRIVATE)
+                : null;
+
+        if (values.containsKey("position")) {
+            String nextPosition = stringSetting(values, "position");
+            if (!nextPosition.isEmpty()) position = nextPosition;
+        } else if (prefs != null) {
+            position = prefs.getString("actions_position", position);
+        }
+        if (values.containsKey("layout")) {
+            String nextLayout = stringSetting(values, "layout");
+            if (!nextLayout.isEmpty()) layout = nextLayout;
+        } else if (prefs != null) {
+            layout = prefs.getString("actions_layout", layout);
+        }
         buttonHeightDp = intSetting(values, "buttonHeight",
                 intSetting(values, "itemSize", 64, 48, 120) + 12, 40, 132);
-        spacingDp = intSetting(values, "spacing", 8, 0, 24);
-        opacity = intSetting(values, "opacity", 90, 30, 100);
-        showLabels = values.get("showLabels") == null ||
-                Boolean.TRUE.equals(values.get("showLabels"));
+
+        if (values.containsKey("spacing")) {
+            spacingDp = intSetting(values, "spacing", 8, 0, 24);
+        } else if (prefs != null) {
+            spacingDp = prefs.getInt("actions_spacing", spacingDp);
+        }
+        if (values.containsKey("opacity")) {
+            opacity = intSetting(values, "opacity", 90, 30, 100);
+        } else if (prefs != null) {
+            opacity = prefs.getInt("actions_opacity", opacity);
+        }
+        if (values.containsKey("showLabels")) {
+            showLabels = Boolean.TRUE.equals(values.get("showLabels"));
+        } else if (prefs != null) {
+            showLabels = prefs.getBoolean("actions_show_labels", showLabels);
+        }
+
+        if (prefs != null) {
+            prefs.edit()
+                    .putInt("actions_spacing", spacingDp)
+                    .putInt("actions_opacity", opacity)
+                    .putBoolean("actions_show_labels", showLabels)
+                    .putString("actions_position", position)
+                    .putString("actions_layout", layout)
+                    .apply();
+        }
+
         smartVisibility = Boolean.TRUE.equals(values.get("smartVisibility"));
         String itemRules = stringSetting(values, "itemOrder");
         itemOrder = parseItemOrder(itemRules);
@@ -346,6 +392,7 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
             hideClock();
             updatePresentation();
             publishClockEntities();
+            publishActionEntities();
         });
     }
 
@@ -406,6 +453,11 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
         clockDate = p.getBoolean("clock_date", true);
         clockPosition = p.getString("clock_position", "Top right");
         clockSize = Math.max(18, Math.min(64, p.getInt("clock_size", 28)));
+        opacity = Math.max(30, Math.min(100, p.getInt("actions_opacity", opacity)));
+        spacingDp = Math.max(0, Math.min(24, p.getInt("actions_spacing", spacingDp)));
+        showLabels = p.getBoolean("actions_show_labels", showLabels);
+        position = p.getString("actions_position", position);
+        layout = p.getString("actions_layout", layout);
     }
 
     private void publishClockEntities() {
@@ -427,6 +479,92 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
             for (String key : new String[]{"clock_dashboard", "clock_kiosk", "clock_fotoo", "clock_date"}) host.removeSwitch(key);
             host.removeSelect("clock_position");
         } catch (Throwable ignored) {}
+    }
+
+    private void publishActionEntities() {
+        if (host == null || context == null) return;
+        try {
+            String selectedPos = CLOCK_POSITION_NAMES[3];
+            for (int i = 0; i < CLOCK_POSITIONS.length; i++) {
+                if (CLOCK_POSITIONS[i].equals(position)) selectedPos = CLOCK_POSITION_NAMES[i];
+            }
+            host.publishSelect("actions_position", "Handlinger: Placering", CLOCK_POSITION_NAMES, selectedPos);
+            host.publishSelect("actions_layout", "Handlinger: Retning", LAYOUT_OPTIONS, "Horizontal".equals(layout) ? "Vandret" : "Lodret");
+            host.publishSwitch("actions_show_labels", "Handlinger: Vis navne og status", showLabels);
+
+            String currentOpacity = opacity + "%";
+            String selectedOpacity = OPACITY_OPTIONS[2];
+            for (String opt : OPACITY_OPTIONS) {
+                if (opt.equals(currentOpacity)) selectedOpacity = opt;
+            }
+            host.publishSelect("actions_opacity", "Handlinger: Opacitet", OPACITY_OPTIONS, selectedOpacity);
+
+            String currentSpacing = spacingDp + " dp";
+            String selectedSpacing = SPACING_OPTIONS[4];
+            for (String opt : SPACING_OPTIONS) {
+                if (opt.equals(currentSpacing)) selectedSpacing = opt;
+            }
+            host.publishSelect("actions_spacing", "Handlinger: Mellemrum", SPACING_OPTIONS, selectedSpacing);
+        } catch (Throwable error) { host.log("Action HA controls: " + safeMessage(error)); }
+    }
+
+    private void removeActionEntities() {
+        if (host == null) return;
+        try {
+            host.removeSelect("actions_position");
+            host.removeSelect("actions_layout");
+            host.removeSwitch("actions_show_labels");
+            host.removeSelect("actions_opacity");
+            host.removeSelect("actions_spacing");
+        } catch (Throwable ignored) {}
+    }
+
+    private void changeActionSetting(String event, Object value) {
+        if (host == null || context == null) return;
+        SharedPreferences.Editor edit = context.getSharedPreferences("quick_actions_preferences", Context.MODE_PRIVATE).edit();
+        if ("switch.actions_show_labels".equals(event)) {
+            if (!(value instanceof Boolean)) { publishActionEntities(); return; }
+            showLabels = (Boolean) value;
+            edit.putBoolean("actions_show_labels", showLabels);
+            configuredSettings.put("showLabels", showLabels);
+        } else if ("select.actions_position".equals(event)) {
+            String pos = null;
+            for (int i = 0; i < CLOCK_POSITIONS.length; i++) {
+                if (CLOCK_POSITION_NAMES[i].equals(value)) pos = CLOCK_POSITIONS[i];
+            }
+            if (pos == null) { publishActionEntities(); return; }
+            position = pos;
+            edit.putString("actions_position", position);
+            configuredSettings.put("position", position);
+        } else if ("select.actions_layout".equals(event)) {
+            layout = "Vandret".equals(value) ? "Horizontal" : "Vertical";
+            edit.putString("actions_layout", layout);
+            configuredSettings.put("layout", layout);
+        } else if ("select.actions_opacity".equals(event)) {
+            if (value instanceof String) {
+                try {
+                    String str = ((String) value).replace("%", "").trim();
+                    opacity = Math.max(30, Math.min(100, Integer.parseInt(str)));
+                    edit.putInt("actions_opacity", opacity);
+                } catch (NumberFormatException ignored) {}
+            }
+        } else if ("select.actions_spacing".equals(event)) {
+            if (value instanceof String) {
+                try {
+                    String str = ((String) value).replace("dp", "").trim();
+                    spacingDp = Math.max(0, Math.min(24, Integer.parseInt(str)));
+                    edit.putInt("actions_spacing", spacingDp);
+                } catch (NumberFormatException ignored) {}
+            }
+        }
+        edit.apply();
+        try { host.saveSettings(new HashMap<>(configuredSettings)); } catch (Throwable ignored) {}
+        main.post(() -> {
+            hideRail();
+            hideClock();
+            updatePresentation();
+            publishActionEntities();
+        });
     }
 
     private void changeClock(String event, Object value) {
@@ -501,23 +639,46 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
             @Override public void onStartTrackingTouch(SeekBar bar) {}
             @Override public void onStopTrackingTouch(SeekBar bar) {}
         });
+
+        TextView opacityLabel = new TextView(ui); opacityLabel.setText("Action rail opacity: " + opacity + " %"); body.addView(opacityLabel);
+        SeekBar opacityBar = new SeekBar(ui); opacityBar.setMax(70); opacityBar.setProgress(opacity - 30); body.addView(opacityBar);
+        opacityBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(SeekBar bar, int value, boolean fromUser) { opacityLabel.setText("Action rail opacity: " + (value + 30) + " %"); }
+            @Override public void onStartTrackingTouch(SeekBar bar) {}
+            @Override public void onStopTrackingTouch(SeekBar bar) {}
+        });
+
+        TextView spacingLabel = new TextView(ui); spacingLabel.setText("Action rail spacing: " + spacingDp + " dp"); body.addView(spacingLabel);
+        SeekBar spacingBar = new SeekBar(ui); spacingBar.setMax(24); spacingBar.setProgress(spacingDp); body.addView(spacingBar);
+        spacingBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+            @Override public void onProgressChanged(SeekBar bar, int value, boolean fromUser) { spacingLabel.setText("Action rail spacing: " + value + " dp"); }
+            @Override public void onStartTrackingTouch(SeekBar bar) {}
+            @Override public void onStopTrackingTouch(SeekBar bar) {}
+        });
+
         ScrollView scroll = new ScrollView(ui); scroll.addView(body);
         AlertDialog dialog = new AlertDialog.Builder(ui).setTitle("Display & clock settings").setView(scroll)
                 .setNegativeButton("Cancel", null).setPositiveButton("Save", (d, which) -> {
                     if (host == null) return;
+                    int newOpacity = opacityBar.getProgress() + 30;
+                    int newSpacing = spacingBar.getProgress();
                     context.getSharedPreferences("quick_actions_preferences", Context.MODE_PRIVATE).edit()
                             .putBoolean("party", party.isChecked())
                             .putBoolean("clock_dashboard", cDashboard.isChecked()).putBoolean("clock_kiosk", cKiosk.isChecked())
                             .putBoolean("clock_fotoo", cFotoo.isChecked()).putBoolean("clock_date", date.isChecked())
                             .putString("clock_position", positions[position.getSelectedItemPosition()])
-                            .putInt("clock_size", size.getProgress() + 18).apply();
+                            .putInt("clock_size", size.getProgress() + 18)
+                            .putInt("actions_opacity", newOpacity)
+                            .putInt("actions_spacing", newSpacing).apply();
+                    opacity = newOpacity;
+                    spacingDp = newSpacing;
                     int mask = (showOnDashboard ? 1 : 0) | (showOnKiosk ? 2 : 0) | (showOnFotoo ? 4 : 0);
                     mask = OverlayTarget.withDashboard(mask, dashboard.isChecked());
                     configuredSettings.put("overlayTarget", OverlayTarget.name(mask));
                     host.saveSettings(new HashMap<>(configuredSettings));
                     setTarget(mask);
                     readDisplaySettings(); manualHidden = false; forcePreview = false;
-                    hideRail(); hideClock(); updatePresentation(); publishClockEntities();
+                    hideRail(); hideClock(); updatePresentation(); publishClockEntities(); publishActionEntities();
                     host.status("Display and clock settings saved.", false);
                 }).create();
         if (!inApp && dialog.getWindow() != null) dialog.getWindow().setType(Build.VERSION.SDK_INT >= 26
@@ -1185,7 +1346,7 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
     }
 
     private static int[] parseItemOrder(String raw) {
-        int[] fallback = new int[] {0, 1, 2, 3};
+        int[] fallback = new int[] {0, 1, 2, 3, 4, 5};
         if (raw == null || raw.trim().isEmpty()) return fallback;
 
         int marker = raw.indexOf('#');

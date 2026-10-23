@@ -8,7 +8,7 @@ Install in **Kiosk Satellite → Plugin Manager → Add plugin** using:
 
 ## Main features
 
-- Up to four Home Assistant display/action items.
+- Up to six Home Assistant display/action items.
 - Separate display entity and action entity per item.
 - Uses `entity_picture` automatically for person entities.
 - Touchable scripts, buttons, automations, scenes, lights, switches, input_booleans and fans.
@@ -172,3 +172,15 @@ unrecognized states retain their original value. Scripts show Kører while activ
 idle scripts and scene/button timestamps do not add a misleading state line.
 Display pictures, action targets and numeric units are preserved. Hidden items
 collapse automatically and return on live entity updates.
+
+## Six action slots and Home Assistant layout controls (0.2.15)
+
+Slots 5 and 6 are restored, offering up to six display and action entities (`item1` to `item6`).
+Default order includes all six items (`1,2,3,4,5,6`), and per-item visibility rules support slots 5 and 6.
+
+To remain strictly within Kiosk Satellite's limit of 20 manifest settings (currently 19 total settings),
+the rarely adjusted `opacity` and `spacing` settings have been migrated from the manifest to native controls:
+- **Home Assistant Controls**: Exposes `Handlinger: Opacitet` (`select.actions_opacity`), `Handlinger: Mellemrum` (`select.actions_spacing`), `Handlinger: Placering` (`select.actions_position`), `Handlinger: Retning` (`select.actions_layout`), and `Handlinger: Vis navne og status` (`switch.actions_show_labels`).
+- **Display & clock settings (saved)**: The on-device dialog includes interactive seekbars for action rail opacity (30–100%) and spacing (0–24 dp).
+- Existing saved values in plugin settings or preferences are migrated seamlessly on update.
+
