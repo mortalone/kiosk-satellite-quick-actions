@@ -8,7 +8,10 @@ final class EntityPresentation {
     private static String clean(String s) { return s == null ? "" : s.trim(); }
     private static String lower(String s) { return clean(s).toLowerCase(Locale.ROOT); }
     private static String domain(String entity) {
-        String s = lower(entity); int dot = s.indexOf('.');
+        String s = lower(entity);
+        int pipe = s.indexOf('|');
+        if (pipe >= 0) s = s.substring(0, pipe).trim();
+        int dot = s.indexOf('.');
         return dot < 0 ? s : s.substring(0, dot);
     }
     private static boolean uncertain(String state) {

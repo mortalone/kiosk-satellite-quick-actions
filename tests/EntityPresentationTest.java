@@ -45,6 +45,9 @@ public class EntityPresentationTest {
         label("scene.all", "2026-10-16", "", "", "");
         label("media_player.room", "paused", "", "", "På pause");
         label("sensor.custom", "custom_state", "", "", "custom_state");
+        label("person.child|Malte", "home", "", "", "Hjemme");
+        label("person.child|", "home", "", "", "Hjemme");
+        label("sensor.citroen_batteri|Citroën", "69", "battery", "%", "69 %");
         System.out.println("Entity presentation: " + checks + " checks passed");
     }
 }

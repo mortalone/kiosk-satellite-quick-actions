@@ -327,7 +327,7 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
             layout = prefs.getString("actions_layout", layout);
         }
         buttonHeightDp = intSetting(values, "buttonHeight",
-                intSetting(values, "itemSize", 64, 48, 120) + 12, 40, 132);
+                intSetting(values, "itemSize", 64, 48, 120) + 12, 24, 132);
 
         if (values.containsKey("spacing")) {
             spacingDp = intSetting(values, "spacing", 8, 0, 24);
@@ -365,14 +365,16 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
             int slot = i + 1;
             displayEntities[i] = stringSetting(values, "item" + slot + "Entity");
             actionEntities[i] = stringSetting(values, "item" + slot + "Action");
-            // Display and visibility entities need live state. Action-only
-            // entities do not: taps can call their service without consuming
-            // one of the plugin host's 16 entity subscriptions.
-            if (!displayEntities[i].isEmpty()) wanted.add(displayEntities[i]);
+            String displayClean = cleanEntity(displayEntities[i]);
+            if (!displayClean.isEmpty()) wanted.add(displayClean);
+            String actionClean = cleanEntity(actionEntities[i]);
+            if (!actionClean.isEmpty() && isSensorEntity(actionClean)) {
+                wanted.add(actionClean);
+            }
             if (!visibilityEntities[i].isEmpty() &&
                     !"Always".equals(visibilityConditions[i]) &&
                     !"Time between".equals(visibilityConditions[i])) {
-                wanted.add(visibilityEntities[i]);
+                wanted.add(cleanEntity(visibilityEntities[i]));
             }
         }
 
@@ -780,25 +782,25 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
             LinearLayout item = new LinearLayout(context);
             item.setOrientation(LinearLayout.HORIZONTAL);
             item.setGravity(Gravity.CENTER_VERTICAL);
-            int pad = dp(Math.max(3, Math.min(10, Math.round(buttonHeightDp * 6f / 76f))));
+            int pad = dp(Math.max(2, Math.min(10, Math.round(buttonHeightDp * 6f / 76f))));
             item.setPadding(pad, pad, pad, pad);
             item.setBackground(cardBackground(0xC7222328, 999));
             item.setClickable(true);
             item.setOnClickListener(v -> performAction(index));
 
             LeadingView leading = new LeadingView(context);
-            int avatarSize = dp(buttonHeightDp) - 2 * pad;
+            int avatarSize = Math.max(dp(18), dp(buttonHeightDp) - 2 * pad);
             item.addView(leading, new LinearLayout.LayoutParams(avatarSize, avatarSize));
 
             TextView label = new TextView(context);
             label.setTextColor(Color.WHITE);
-            label.setTextSize(Math.max(11f, Math.min(14f, buttonHeightDp * 14f / 76f)));
+            label.setTextSize(Math.max(9f, Math.min(14f, buttonHeightDp * 14f / 76f)));
             label.setMaxLines(2);
-            label.setPadding(dp(8), 0, dp(6), 0);
-            if (showLabels) {
-                item.addView(label, new LinearLayout.LayoutParams(
-                        dp(Math.max(72, Math.round(buttonHeightDp * 130f / 76f))), ViewGroup.LayoutParams.WRAP_CONTENT));
-            }
+            label.setPadding(dp(6), 0, dp(4), 0);
+            LinearLayout.LayoutParams labelParams = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            label.setMaxWidth(dp(Math.max(64, Math.round(buttonHeightDp * 130f / 76f))));
+            item.addView(label, labelParams);
 
             LinearLayout.LayoutParams itemParams = new LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -833,42 +835,78 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
             item.root.setVisibility(visible ? View.VISIBLE : View.GONE);
             if (!visible) continue;
 
-            String entity = displayEntities[item.index];
-            EntitySnapshot snapshot = snapshots.get(entity);
-            if (snapshot == null) {
-                item.label.setText(entity + "\nUkendt");
+            String rawDisplay = displayEntities[item.index];
+            String displayEntity = cleanEntity(rawDisplay);
+            String customLabel = parseCustomLabel(rawDisplay);
+            boolean explicitHide = isExplicitHideLabel(rawDisplay);
+
+            String rawAction = actionEntities[item.index];
+            String actionEntity = cleanEntity(rawAction);
+            boolean linkedSensor = isSensorEntity(actionEntity);
+
+            EntitySnapshot displaySnap = snapshots.get(displayEntity);
+            EntitySnapshot statusSnap = linkedSensor ? snapshots.get(actionEntity) : displaySnap;
+
+            boolean shouldShowLabel = showLabels && !explicitHide;
+
+            if (displaySnap == null && statusSnap == null) {
+                if (shouldShowLabel) {
+                    item.label.setVisibility(View.VISIBLE);
+                    String unknownName = (customLabel != null && !customLabel.isEmpty()) ? customLabel : displayEntity;
+                    item.label.setText(unknownName + "\nUkendt");
+                } else {
+                    item.label.setVisibility(View.GONE);
+                }
                 continue;
             }
 
-            String friendly = attr(snapshot.attributes, "friendly_name", entity);
-            String state = snapshot.state;
-            String unit = attr(snapshot.attributes, "unit_of_measurement", "").trim();
-            String deviceClass = attr(snapshot.attributes, "device_class", "");
-            boolean battery = BatteryLevel.isBattery(
-                    deviceClass, attr(snapshot.attributes, "icon", ""));
+            String friendly;
+            if (customLabel != null && !customLabel.isEmpty()) {
+                friendly = customLabel;
+            } else if (displaySnap != null) {
+                friendly = attr(displaySnap.attributes, "friendly_name", displayEntity);
+            } else {
+                friendly = displayEntity;
+            }
+
+            String state = statusSnap != null ? statusSnap.state : "";
+            String unit = statusSnap != null ? attr(statusSnap.attributes, "unit_of_measurement", "").trim() : "";
+            String deviceClass = statusSnap != null ? attr(statusSnap.attributes, "device_class", "") : "";
+            String icon = statusSnap != null ? attr(statusSnap.attributes, "icon", "") : "";
+            boolean battery = BatteryLevel.isBattery(deviceClass, icon);
             int batteryLevel = battery ? BatteryLevel.parse(state) : -1;
             String badge = percentageBadge(state, unit, deviceClass);
 
-            String displayState = EntityPresentation.text(entity, state, deviceClass, unit);
+            String displayState = EntityPresentation.text(
+                    linkedSensor ? actionEntity : displayEntity,
+                    state, deviceClass, unit);
 
-            // Batteries show a filled icon and one percentage beside it.
-            // Other percentage sensors keep the number inside the circle.
-            item.label.setText(
-                    battery && batteryLevel >= 0
-                            ? friendly + "\n" + batteryLevel + " %"
-                            : !badge.isEmpty()
-                            ? friendly
-                            : (displayState.isEmpty() ||
-                               "unknown".equalsIgnoreCase(displayState)
-                                    ? friendly
-                                    : friendly + "\n" + displayState));
+            if (shouldShowLabel) {
+                item.label.setVisibility(View.VISIBLE);
+                item.label.setText(
+                        battery && batteryLevel >= 0
+                                ? (friendly.isEmpty() ? batteryLevel + " %" : friendly + "\n" + batteryLevel + " %")
+                                : !badge.isEmpty()
+                                ? (friendly.isEmpty() ? badge : friendly + "\n" + badge)
+                                : (displayState.isEmpty() ||
+                                   "unknown".equalsIgnoreCase(displayState)
+                                        ? friendly
+                                        : (friendly.isEmpty() ? displayState : friendly + "\n" + displayState)));
+            } else {
+                item.label.setVisibility(View.GONE);
+            }
 
-            String picture = attr(snapshot.attributes, "entity_picture", "");
-            if (battery) {
+            // Picture resolution: check displaySnap first, then statusSnap
+            String picture = displaySnap != null ? attr(displaySnap.attributes, "entity_picture", "") : "";
+            if (picture.isEmpty() && statusSnap != null) {
+                picture = attr(statusSnap.attributes, "entity_picture", "");
+            }
+
+            if (!picture.isEmpty()) {
+                loadPicture(item, picture, batteryLevel, coloredBattery);
+            } else if (battery) {
                 item.picture = "";
-                item.leading.setBatteryLevel(batteryLevel, coloredBattery, item.label.getCurrentTextColor());
-            } else if (!picture.isEmpty()) {
-                loadPicture(item, picture);
+                item.leading.setBatteryLevel(batteryLevel, coloredBattery, item.label.getCurrentTextColor(), !shouldShowLabel);
             } else {
                 item.picture = "";
                 item.leading.setBadgeText(
@@ -881,8 +919,10 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
         String condition = visibilityConditions[index];
         if ("Always".equals(condition)) return true;
         if (condition == null || condition.isEmpty()) {
-            EntitySnapshot display = snapshots.get(displayEntities[index]);
-            return EntityPresentation.visible(smartVisibility, displayEntities[index], actionEntities[index],
+            String cleanDisp = cleanEntity(displayEntities[index]);
+            String cleanAct = cleanEntity(actionEntities[index]);
+            EntitySnapshot display = snapshots.get(cleanDisp);
+            return EntityPresentation.visible(smartVisibility, cleanDisp, cleanAct,
                     display == null ? null : display.state,
                     display == null ? "" : attr(display.attributes, "device_class", ""));
         }
@@ -892,8 +932,8 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
             return timeBetween(value);
         }
 
-        String entity = visibilityEntities[index];
-        if (entity == null || entity.isEmpty()) return true;
+        String entity = cleanEntity(visibilityEntities[index]);
+        if (entity.isEmpty()) return true;
         EntitySnapshot snapshot = snapshots.get(entity);
         if (snapshot == null) return false;
         String state = snapshot.state == null ? "" : snapshot.state.trim();
@@ -964,25 +1004,32 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
         }
     }
 
-    private void loadPicture(ItemViews item, String picture) {
-        if (picture.equals(item.picture) || io == null) return;
+    private void loadPicture(ItemViews item, String picture, int batteryLevel, boolean colored) {
+        if (picture.equals(item.picture)) {
+            if (item.leading.getBitmap() != null) {
+                item.leading.setPicture(item.leading.getBitmap(), batteryLevel, colored);
+            }
+            return;
+        }
         item.picture = picture;
         String url = resolveHaUrl(picture);
-        if (url == null) return;
+        if (url == null || io == null) return;
         io.execute(() -> {
             Bitmap bitmap = fetchBitmap(url);
             main.post(() -> {
                 if (bitmap != null && picture.equals(item.picture)) {
-                    item.leading.setPicture(bitmap);
+                    item.leading.setPicture(bitmap, batteryLevel, colored);
                 }
             });
         });
     }
 
     private void performAction(int index) {
-        String entity = actionEntities[index];
-        if (entity == null || entity.isEmpty()) entity = displayEntities[index];
-        if (entity == null || entity.isEmpty() || host == null) return;
+        String entity = cleanEntity(actionEntities[index]);
+        if (entity.isEmpty() || isSensorEntity(entity)) {
+            entity = cleanEntity(displayEntities[index]);
+        }
+        if (entity.isEmpty() || isSensorEntity(entity) || host == null) return;
 
         int dot = entity.indexOf('.');
         if (dot <= 0) return;
@@ -996,8 +1043,7 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
         else if ("switch".equals(domain) || "input_boolean".equals(domain) ||
                 "light".equals(domain) || "fan".equals(domain)) service = "toggle";
         else {
-            domain = "homeassistant";
-            service = "toggle";
+            return;
         }
 
         Map<String, Object> args = new HashMap<>();
@@ -1443,6 +1489,31 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
         return (first + last).toUpperCase(java.util.Locale.ROOT);
     }
 
+    static String cleanEntity(String raw) {
+        if (raw == null) return "";
+        int pipe = raw.indexOf('|');
+        return pipe >= 0 ? raw.substring(0, pipe).trim() : raw.trim();
+    }
+
+    static String parseCustomLabel(String raw) {
+        if (raw == null) return null;
+        int pipe = raw.indexOf('|');
+        if (pipe < 0) return null;
+        return raw.substring(pipe + 1).trim();
+    }
+
+    static boolean isExplicitHideLabel(String raw) {
+        if (raw == null) return false;
+        int pipe = raw.indexOf('|');
+        return pipe >= 0 && raw.substring(pipe + 1).trim().isEmpty();
+    }
+
+    static boolean isSensorEntity(String entity) {
+        if (entity == null) return false;
+        String e = cleanEntity(entity).toLowerCase(java.util.Locale.ROOT);
+        return e.startsWith("sensor.") || e.startsWith("binary_sensor.");
+    }
+
     /**
      * Circular leading content for each pill. A real entity_picture is
      * center-cropped inside a hard circular clip so it can never spill out of
@@ -1462,6 +1533,7 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
         private int batteryLevel = -1;
         private boolean coloredBattery;
         private int batteryColor = Color.WHITE;
+        private boolean showNumberInside;
 
         LeadingView(Context context) {
             super(context);
@@ -1475,25 +1547,39 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
             text.setTextAlign(Paint.Align.CENTER);
         }
 
-        void setPicture(Bitmap value) {
+        Bitmap getBitmap() {
+            return bitmap;
+        }
+
+        void setPicture(Bitmap value, int batteryLvl, boolean colored) {
             battery = false;
             bitmap = value;
+            batteryLevel = batteryLvl;
+            coloredBattery = colored;
+            showNumberInside = false;
             invalidate();
+        }
+
+        void setPicture(Bitmap value) {
+            setPicture(value, -1, false);
         }
 
         void setBadgeText(String value) {
             battery = false;
             bitmap = null;
+            batteryLevel = -1;
+            showNumberInside = false;
             badgeText = value == null || value.isEmpty() ? "•" : value;
             invalidate();
         }
 
-        void setBatteryLevel(int value, boolean colored, int textColor) {
+        void setBatteryLevel(int value, boolean colored, int textColor, boolean numberInside) {
             bitmap = null;
             battery = true;
             batteryLevel = value;
             coloredBattery = colored;
             batteryColor = textColor;
+            showNumberInside = numberInside;
             invalidate();
         }
 
@@ -1510,7 +1596,18 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
 
             Bitmap b = bitmap;
             if (battery) {
-                drawBattery(canvas, cx, cy, size);
+                if (showNumberInside && batteryLevel >= 0) {
+                    text.setColor(Color.WHITE);
+                    float density = getResources().getDisplayMetrics().scaledDensity;
+                    String value = batteryLevel + "%";
+                    float sp = value.length() >= 4 ? 10f : value.length() >= 3 ? 12f : 14f;
+                    text.setTextSize(sp * density);
+                    Paint.FontMetrics fm = text.getFontMetrics();
+                    float baseline = cy - (fm.ascent + fm.descent) / 2f;
+                    canvas.drawText(value, cx, baseline, text);
+                } else {
+                    drawBattery(canvas, cx, cy, size);
+                }
             } else if (b != null && b.getWidth() > 0 && b.getHeight() > 0) {
                 int bw = b.getWidth();
                 int bh = b.getHeight();
@@ -1542,6 +1639,13 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
                 canvas.drawText(value, cx, baseline, text);
             }
 
+            if (batteryLevel >= 0 && coloredBattery) {
+                border.setColor(BatteryLevel.fillColor(batteryLevel, true, Color.WHITE));
+                border.setStrokeWidth(Math.max(1.5f, getContext().getResources().getDisplayMetrics().density * 1.5f));
+            } else {
+                border.setColor(0x66FFFFFF);
+                border.setStrokeWidth(Math.max(1f, getContext().getResources().getDisplayMetrics().density));
+            }
             canvas.drawCircle(
                     cx,
                     cy,

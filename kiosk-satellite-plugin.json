@@ -3,10 +3,10 @@
   "apiVersion": 1,
   "id": "quick-actions-overlay",
   "name": "Quick Actions & Clock",
-  "version": "0.2.16",
+  "version": "0.2.17",
   "minAndroidSdk": 26,
   "entryClass": "me.jxl.kiosk.plugins.quickactionsoverlay.QuickActionsOverlayPlugin",
-  "description": "Shared Home Assistant actions and optional clock for Kiosk dashboard, screensavers and Fotoo, with up to six items, battery icons, Danish HA controls and per-item visibility rules.",
+  "description": "Shared Home Assistant actions and optional clock for Kiosk dashboard, screensavers and Fotoo, with up to six items, battery icons, custom titles, linked sensors, Danish HA controls and per-item visibility rules.",
   "author": "Local Kiosk Satellite project",
   "license": "MIT",
   "capabilities": [
@@ -69,12 +69,12 @@
       "type": "number",
       "title": "Button height",
       "default": 76,
-      "min": 40,
+      "min": 24,
       "max": 132,
-      "step": 4,
+      "step": 2,
       "unit": "dp",
       "group": "Layout",
-      "description": "Total button height. Picture, padding, text and width scale together for compact dashboard actions."
+      "description": "Total button height (24–132 dp). Picture, padding, text and width scale together for compact dashboard actions."
     },
     {
       "key": "showLabels",
@@ -106,7 +106,7 @@
       "title": "Item 1 display entity",
       "default": "",
       "group": "Actions",
-      "description": "Entity used for picture, name and state (e.g. person.malte, sensor.citroen_batteri)."
+      "description": "Display entity (e.g. person.malte, image.aftensmad_lille, sensor.citroen_batteri). Append |Custom Name (e.g. sensor.citroen_batteri|Citroën) or | to hide label."
     },
     {
       "key": "item1Action",
@@ -114,7 +114,7 @@
       "title": "Item 1 action entity",
       "default": "",
       "group": "Actions",
-      "description": "Entity activated when tapped. Leave empty to act on the display entity."
+      "description": "Action entity (script, switch, light) OR linked sensor (e.g. sensor.citroen_batteri) to display percentage/state for a logo."
     },
     {
       "key": "item2Entity",
@@ -122,7 +122,7 @@
       "title": "Item 2 display entity",
       "default": "",
       "group": "Actions",
-      "description": "Entity used for picture, name and state."
+      "description": "Display entity. Append |Custom Name (e.g. person.dicte_hansen|Dicte) or | to hide label."
     },
     {
       "key": "item2Action",
@@ -130,7 +130,7 @@
       "title": "Item 2 action entity",
       "default": "",
       "group": "Actions",
-      "description": "Entity activated when tapped. Leave empty to act on the display entity."
+      "description": "Action entity (script, switch, light) OR linked sensor."
     },
     {
       "key": "item3Entity",
@@ -138,7 +138,7 @@
       "title": "Item 3 display entity",
       "default": "",
       "group": "Actions",
-      "description": "Entity used for picture, name and state."
+      "description": "Display entity. Append |Custom Name (e.g. person.siljes_hansen|Silje) or | to hide label."
     },
     {
       "key": "item3Action",
@@ -146,7 +146,7 @@
       "title": "Item 3 action entity",
       "default": "",
       "group": "Actions",
-      "description": "Entity activated when tapped. Leave empty to act on the display entity."
+      "description": "Action entity (script, switch, light) OR linked sensor."
     },
     {
       "key": "item4Entity",
@@ -154,7 +154,7 @@
       "title": "Item 4 display entity",
       "default": "",
       "group": "Actions",
-      "description": "Entity used for picture, name and state."
+      "description": "Display entity (e.g. image.aftensmad_lille|). Append |Custom Name or | to hide label."
     },
     {
       "key": "item4Action",
@@ -162,7 +162,7 @@
       "title": "Item 4 action entity",
       "default": "",
       "group": "Actions",
-      "description": "Entity activated when tapped. Leave empty to act on the display entity."
+      "description": "Action entity (script, switch, light) OR linked sensor."
     },
     {
       "key": "item5Entity",
@@ -170,7 +170,7 @@
       "title": "Item 5 display entity",
       "default": "",
       "group": "Actions",
-      "description": "Entity used for picture, name and state (e.g. sensor.citroen_batteri)."
+      "description": "Display entity (e.g. sensor.citroen_batteri|Citroën or car logo image). Append |Custom Name or | to hide label."
     },
     {
       "key": "item5Action",
@@ -178,7 +178,7 @@
       "title": "Item 5 action entity",
       "default": "",
       "group": "Actions",
-      "description": "Entity activated when tapped. Leave empty to act on the display entity."
+      "description": "Action entity (script, switch, light) OR linked sensor (e.g. sensor.citroen_batteri) to pair percentage with a logo."
     },
     {
       "key": "item6Entity",
@@ -186,7 +186,7 @@
       "title": "Item 6 display entity",
       "default": "",
       "group": "Actions",
-      "description": "Entity used for picture, name and state (e.g. sensor.lsjwx4098tn028453_soc)."
+      "description": "Display entity (e.g. sensor.lsjwx4098tn028453_soc|MG or car logo image). Append |Custom Name or | to hide label."
     },
     {
       "key": "item6Action",
@@ -194,7 +194,7 @@
       "title": "Item 6 action entity",
       "default": "",
       "group": "Actions",
-      "description": "Entity activated when tapped. Leave empty to act on the display entity."
+      "description": "Action entity (script, switch, light) OR linked sensor (e.g. sensor.lsjwx4098tn028453_soc) to pair percentage with a logo."
     }
   ],
   "commands": [
