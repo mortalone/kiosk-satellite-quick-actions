@@ -98,4 +98,86 @@ final class EntityPresentation {
         String u = clean(unit);
         return u.isEmpty() || raw.endsWith(u) ? raw : raw + " " + u;
     }
+
+    static final class EntitySpec {
+        final String displayEntity;
+        final String linkedSensor;
+        final String customLabel;
+        final boolean explicitHide;
+
+        EntitySpec(String displayEntity, String linkedSensor, String customLabel, boolean explicitHide) {
+            this.displayEntity = displayEntity == null ? "" : displayEntity.trim();
+            this.linkedSensor = linkedSensor == null ? "" : linkedSensor.trim();
+            this.customLabel = customLabel == null || customLabel.trim().isEmpty() ? null : customLabel.trim();
+            this.explicitHide = explicitHide;
+        }
+    }
+
+    static boolean isEntityId(String s) {
+        if (s == null) return false;
+        String t = s.trim().toLowerCase(Locale.ROOT);
+        int dot = t.indexOf('.');
+        return dot > 0 && dot < t.length() - 1 && !t.contains(" ");
+    }
+
+    static boolean isSensorDomain(String s) {
+        if (s == null) return false;
+        String t = s.trim().toLowerCase(Locale.ROOT);
+        return t.startsWith("sensor.") || t.startsWith("binary_sensor.");
+    }
+
+    static EntitySpec parseSpec(String rawDisplay, String rawAction) {
+        String disp = "", sensor = "", label = null;
+        boolean hide = false;
+
+        if (rawDisplay != null) {
+            String[] parts = rawDisplay.split("\\|", -1);
+            for (int i = 0; i < parts.length; i++) {
+                String p = parts[i].trim();
+                if (p.isEmpty()) {
+                    if (i == parts.length - 1 && parts.length > 1) {
+                        hide = true;
+                    }
+                    continue;
+                }
+                if (isEntityId(p)) {
+                    if (isSensorDomain(p)) {
+                        if (sensor.isEmpty()) sensor = p;
+                        else if (disp.isEmpty()) disp = p;
+                    } else {
+                        if (disp.isEmpty()) disp = p;
+                        else if (sensor.isEmpty()) sensor = p;
+                    }
+                } else {
+                    label = p;
+                }
+            }
+        }
+
+        if (sensor.isEmpty() && rawAction != null) {
+            String act = rawAction.trim();
+            int pipe = act.indexOf('|');
+            if (pipe >= 0) act = act.substring(0, pipe).trim();
+            if (isSensorDomain(act)) {
+                sensor = act;
+            }
+        }
+
+        if (disp.isEmpty() && !sensor.isEmpty()) {
+            disp = sensor;
+            sensor = "";
+        }
+
+        return new EntitySpec(disp, sensor, label, hide);
+    }
+
+    static String singleLineTitle(String title, int maxChars) {
+        if (title == null) return "";
+        String clean = title.trim();
+        int nl = clean.indexOf('\n');
+        if (nl >= 0) clean = clean.substring(0, nl).trim();
+        if (clean.length() <= maxChars) return clean;
+        return clean.substring(0, Math.max(0, maxChars - 1)).trim() + "…";
+    }
 }
+

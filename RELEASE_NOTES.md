@@ -1,3 +1,12 @@
+# Quick Actions & Clock 0.2.19
+
+- **Multi-entity pipe syntax (`image|sensor|title`)**: Display entity fields now support flexible chaining via `|` in any order:
+  - `image.citroen_logo | sensor.citroen_batteri`: automatically pairs the image avatar with the battery sensor.
+  - `image.citroen_logo | sensor.citroen_batteri | Citroën`: pairs the image avatar with the battery sensor and assigns custom title "Citroën".
+  - `image.citroen_logo | sensor.citroen_batteri |`: pairs image and battery sensor, but hides text completely for a clean circular pill.
+- **Guaranteed two-line layout (no clipped battery percentage)**: Title is strictly kept on line 1 (truncated with ellipsis if over 14 characters), ensuring line 2 is always reserved for the live battery percentage (`69 %`). Long entity names or titles can no longer push the percentage off the screen.
+- **Padded car logo PNGs**: Bundled Citroën and MG PNGs now include a 20% transparent inner margin, preventing the chevrons/octagon from touching or being clipped by the circular border or battery ring.
+
 # Quick Actions & Clock 0.2.18
 
 - **Car logo & picture rendering fix**: Prioritize circular bitmap rendering over battery fallback in `LeadingView.onDraw`, ensuring loaded images (e.g. car logos or person avatars) are always rendered with the colored battery ring border.

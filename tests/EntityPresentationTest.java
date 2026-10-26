@@ -48,6 +48,42 @@ public class EntityPresentationTest {
         label("person.child|Malte", "home", "", "", "Hjemme");
         label("person.child|", "home", "", "", "Hjemme");
         label("sensor.citroen_batteri|Citroën", "69", "battery", "%", "69 %");
+
+        // Multi-entity pipe parsing checks
+        EntityPresentation.EntitySpec s1 = EntityPresentation.parseSpec("image.citroen_logo | sensor.citroen_batteri", "");
+        check("image.citroen_logo".equals(s1.displayEntity));
+        check("sensor.citroen_batteri".equals(s1.linkedSensor));
+        check(s1.customLabel == null);
+        check(!s1.explicitHide);
+
+        EntityPresentation.EntitySpec s2 = EntityPresentation.parseSpec("image.citroen_logo | sensor.citroen_batteri | Citroën", "");
+        check("image.citroen_logo".equals(s2.displayEntity));
+        check("sensor.citroen_batteri".equals(s2.linkedSensor));
+        check("Citroën".equals(s2.customLabel));
+        check(!s2.explicitHide);
+
+        EntityPresentation.EntitySpec s3 = EntityPresentation.parseSpec("image.citroen_logo | sensor.citroen_batteri |", "");
+        check("image.citroen_logo".equals(s3.displayEntity));
+        check("sensor.citroen_batteri".equals(s3.linkedSensor));
+        check(s3.customLabel == null);
+        check(s3.explicitHide);
+
+        // Reverse order: sensor first, image second
+        EntityPresentation.EntitySpec s4 = EntityPresentation.parseSpec("sensor.citroen_batteri | image.citroen_logo", "");
+        check("image.citroen_logo".equals(s4.displayEntity));
+        check("sensor.citroen_batteri".equals(s4.linkedSensor));
+
+        // Sensor from action entity
+        EntityPresentation.EntitySpec s5 = EntityPresentation.parseSpec("image.mg_logo|MG", "sensor.lsjwx4098tn028453_soc");
+        check("image.mg_logo".equals(s5.displayEntity));
+        check("sensor.lsjwx4098tn028453_soc".equals(s5.linkedSensor));
+        check("MG".equals(s5.customLabel));
+
+        // Title truncation
+        check("Citroën".equals(EntityPresentation.singleLineTitle("Citroën", 14)));
+        check("Citroen Batte…".equals(EntityPresentation.singleLineTitle("Citroen Batteri", 14)));
+        check("MG".equals(EntityPresentation.singleLineTitle("MG\nSoC", 14)));
+
         System.out.println("Entity presentation: " + checks + " checks passed");
     }
 }

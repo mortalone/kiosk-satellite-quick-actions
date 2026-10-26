@@ -365,8 +365,9 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
             int slot = i + 1;
             displayEntities[i] = stringSetting(values, "item" + slot + "Entity");
             actionEntities[i] = stringSetting(values, "item" + slot + "Action");
-            String displayClean = cleanEntity(displayEntities[i]);
-            if (!displayClean.isEmpty()) wanted.add(displayClean);
+            EntityPresentation.EntitySpec spec = EntityPresentation.parseSpec(displayEntities[i], actionEntities[i]);
+            if (!spec.displayEntity.isEmpty()) wanted.add(spec.displayEntity);
+            if (!spec.linkedSensor.isEmpty()) wanted.add(spec.linkedSensor);
             String actionClean = cleanEntity(actionEntities[i]);
             if (!actionClean.isEmpty() && isSensorEntity(actionClean)) {
                 wanted.add(actionClean);
@@ -836,13 +837,13 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
             if (!visible) continue;
 
             String rawDisplay = displayEntities[item.index];
-            String displayEntity = cleanEntity(rawDisplay);
-            String customLabel = parseCustomLabel(rawDisplay);
-            boolean explicitHide = isExplicitHideLabel(rawDisplay);
-
             String rawAction = actionEntities[item.index];
-            String actionEntity = cleanEntity(rawAction);
-            boolean linkedSensor = isSensorEntity(actionEntity);
+            EntityPresentation.EntitySpec spec = EntityPresentation.parseSpec(rawDisplay, rawAction);
+            String displayEntity = spec.displayEntity;
+            String actionEntity = spec.linkedSensor.isEmpty() ? cleanEntity(rawAction) : spec.linkedSensor;
+            boolean linkedSensor = !spec.linkedSensor.isEmpty() || isSensorEntity(actionEntity);
+            String customLabel = spec.customLabel;
+            boolean explicitHide = spec.explicitHide;
 
             EntitySnapshot displaySnap = snapshots.get(displayEntity);
             EntitySnapshot statusSnap = linkedSensor ? snapshots.get(actionEntity) : displaySnap;
@@ -865,6 +866,8 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
                 friendly = customLabel;
             } else if (displaySnap != null) {
                 friendly = attr(displaySnap.attributes, "friendly_name", displayEntity);
+            } else if (statusSnap != null) {
+                friendly = attr(statusSnap.attributes, "friendly_name", actionEntity);
             } else {
                 friendly = displayEntity;
             }
@@ -881,17 +884,24 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
                     linkedSensor ? actionEntity : displayEntity,
                     state, deviceClass, unit);
 
+            String stateLine = battery && batteryLevel >= 0
+                    ? batteryLevel + " %"
+                    : !badge.isEmpty()
+                    ? badge
+                    : (displayState.isEmpty() || "unknown".equalsIgnoreCase(displayState)
+                            ? ""
+                            : displayState);
+
             if (shouldShowLabel) {
                 item.label.setVisibility(View.VISIBLE);
-                item.label.setText(
-                        battery && batteryLevel >= 0
-                                ? (friendly.isEmpty() ? batteryLevel + " %" : friendly + "\n" + batteryLevel + " %")
-                                : !badge.isEmpty()
-                                ? (friendly.isEmpty() ? badge : friendly + "\n" + badge)
-                                : (displayState.isEmpty() ||
-                                   "unknown".equalsIgnoreCase(displayState)
-                                        ? friendly
-                                        : (friendly.isEmpty() ? displayState : friendly + "\n" + displayState)));
+                if (stateLine.isEmpty()) {
+                    item.label.setText(friendly);
+                } else if (friendly.isEmpty()) {
+                    item.label.setText(stateLine);
+                } else {
+                    String cleanTitle = EntityPresentation.singleLineTitle(friendly, 14);
+                    item.label.setText(cleanTitle + "\n" + stateLine);
+                }
             } else {
                 item.label.setVisibility(View.GONE);
             }
@@ -919,8 +929,9 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
         String condition = visibilityConditions[index];
         if ("Always".equals(condition)) return true;
         if (condition == null || condition.isEmpty()) {
-            String cleanDisp = cleanEntity(displayEntities[index]);
-            String cleanAct = cleanEntity(actionEntities[index]);
+            EntityPresentation.EntitySpec spec = EntityPresentation.parseSpec(displayEntities[index], actionEntities[index]);
+            String cleanDisp = spec.displayEntity;
+            String cleanAct = spec.linkedSensor.isEmpty() ? cleanEntity(actionEntities[index]) : spec.linkedSensor;
             EntitySnapshot display = snapshots.get(cleanDisp);
             return EntityPresentation.visible(smartVisibility, cleanDisp, cleanAct,
                     display == null ? null : display.state,
@@ -1031,9 +1042,10 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
     }
 
     private void performAction(int index) {
+        EntityPresentation.EntitySpec spec = EntityPresentation.parseSpec(displayEntities[index], actionEntities[index]);
         String entity = cleanEntity(actionEntities[index]);
         if (entity.isEmpty() || isSensorEntity(entity)) {
-            entity = cleanEntity(displayEntities[index]);
+            entity = spec.displayEntity;
         }
         if (entity.isEmpty() || isSensorEntity(entity) || host == null) return;
 
