@@ -1,3 +1,8 @@
+# Quick Actions & Clock 0.2.20
+
+- **Throttled sequential polling (fixes "At most 8 KS commands may be pending")**: Implemented a sequential polling queue with at most 1 command in flight at a time. Prevents filling Kiosk Satellite's command buffer (limit 8) when polling multiple display entities, linked sensors, and visibility rules simultaneously.
+- **Skip redundant entity polling**: Polling is skipped for entities already present in the local snapshot cache, reducing host load and avoiding command collisions during plugin update/install.
+
 # Quick Actions & Clock 0.2.19
 
 - **Multi-entity pipe syntax (`image|sensor|title`)**: Display entity fields now support flexible chaining via `|` in any order:

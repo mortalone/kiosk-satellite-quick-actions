@@ -52,12 +52,14 @@ import java.lang.reflect.Method;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLConnection;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import java.util.Set;
 import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
@@ -271,6 +273,8 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
 
     @Override
     public synchronized void stop() {
+        pollQueue.clear();
+        pollInProgress = false;
         main.removeCallbacks(presentationTick);
         removeClockEntities();
         removeActionEntities();
@@ -407,19 +411,38 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
         });
     }
 
-    private void pollEntity(String entity) {
+    private final Queue<String> pollQueue = new ArrayDeque<>();
+    private boolean pollInProgress = false;
+
+    private synchronized void pollEntity(String entity) {
         if (entity == null || entity.isEmpty() || host == null) return;
+        if (snapshots.containsKey(entity)) return;
+        if (!pollQueue.contains(entity)) pollQueue.add(entity);
+        drainPollQueue();
+    }
+
+    private synchronized void drainPollQueue() {
+        if (pollInProgress || pollQueue.isEmpty() || host == null) return;
+        String entity = pollQueue.poll();
+        pollInProgress = true;
         Map<String, Object> args = new HashMap<>();
         args.put("entityId", entity);
         host.executeCommand("getHaEntityState", args, (ok, data, error) -> {
-            if (!ok || !(data instanceof Map)) return;
-            Map<?, ?> m = (Map<?, ?>) data;
-            String state = m.get("state") == null ? "" : String.valueOf(m.get("state"));
-            Object attrs = m.get("attributes");
-            snapshots.put(entity, new EntitySnapshot(
-                    state,
-                    attrs instanceof Map ? (Map<?, ?>) attrs : Collections.emptyMap()));
-            main.post(this::refreshRail);
+            synchronized (QuickActionsOverlayPlugin.this) {
+                pollInProgress = false;
+            }
+            if (ok && data instanceof Map) {
+                Map<?, ?> m = (Map<?, ?>) data;
+                String state = m.get("state") == null ? "" : String.valueOf(m.get("state"));
+                Object attrs = m.get("attributes");
+                snapshots.put(entity, new EntitySnapshot(
+                        state,
+                        attrs instanceof Map ? (Map<?, ?>) attrs : Collections.emptyMap()));
+                main.post(QuickActionsOverlayPlugin.this::refreshRail);
+            }
+            synchronized (QuickActionsOverlayPlugin.this) {
+                drainPollQueue();
+            }
         });
     }
 
