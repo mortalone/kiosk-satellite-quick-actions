@@ -50,9 +50,16 @@ public class EntityPresentationTest {
         label("sensor.citroen_batteri|Citroën", "69", "battery", "%", "69 %");
 
         // Multi-entity pipe parsing checks
+        EntityPresentation.EntitySpec s0 = EntityPresentation.parseSpec("image.citroen_logo | | sensor.citroen_batteri", "");
+        check("image.citroen_logo".equals(s0.displayEntity));
+        check("sensor.citroen_batteri".equals(s0.linkedSensor));
+        check(s0.emptyTitle);
+        check(!s0.explicitHide);
+
         EntityPresentation.EntitySpec s1 = EntityPresentation.parseSpec("image.citroen_logo | sensor.citroen_batteri", "");
         check("image.citroen_logo".equals(s1.displayEntity));
         check("sensor.citroen_batteri".equals(s1.linkedSensor));
+        check(!s1.emptyTitle);
         check(s1.customLabel == null);
         check(!s1.explicitHide);
 

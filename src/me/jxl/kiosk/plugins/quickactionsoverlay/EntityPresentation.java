@@ -103,12 +103,14 @@ final class EntityPresentation {
         final String displayEntity;
         final String linkedSensor;
         final String customLabel;
+        final boolean emptyTitle;
         final boolean explicitHide;
 
-        EntitySpec(String displayEntity, String linkedSensor, String customLabel, boolean explicitHide) {
+        EntitySpec(String displayEntity, String linkedSensor, String customLabel, boolean emptyTitle, boolean explicitHide) {
             this.displayEntity = displayEntity == null ? "" : displayEntity.trim();
             this.linkedSensor = linkedSensor == null ? "" : linkedSensor.trim();
             this.customLabel = customLabel == null || customLabel.trim().isEmpty() ? null : customLabel.trim();
+            this.emptyTitle = emptyTitle;
             this.explicitHide = explicitHide;
         }
     }
@@ -128,7 +130,7 @@ final class EntityPresentation {
 
     static EntitySpec parseSpec(String rawDisplay, String rawAction) {
         String disp = "", sensor = "", label = null;
-        boolean hide = false;
+        boolean hide = false, emptyTitle = false;
 
         if (rawDisplay != null) {
             String[] parts = rawDisplay.split("\\|", -1);
@@ -137,6 +139,8 @@ final class EntityPresentation {
                 if (p.isEmpty()) {
                     if (i == parts.length - 1 && parts.length > 1) {
                         hide = true;
+                    } else if (i > 0 && i < parts.length - 1) {
+                        emptyTitle = true;
                     }
                     continue;
                 }
@@ -168,7 +172,7 @@ final class EntityPresentation {
             sensor = "";
         }
 
-        return new EntitySpec(disp, sensor, label, hide);
+        return new EntitySpec(disp, sensor, label, emptyTitle, hide);
     }
 
     static String singleLineTitle(String title, int maxChars) {

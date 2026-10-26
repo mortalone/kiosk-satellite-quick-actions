@@ -1,3 +1,8 @@
+# Quick Actions & Clock 0.2.21
+
+- **Support explicit empty title (`image | | sensor`)**: Writing an empty middle pipe (e.g. `image.citroen_logo | | sensor.citroen_batteri`) explicitly omits the title, displaying only the battery percentage (`69 %`) next to the logo.
+- **Auto-omit redundant image helper names**: When an image helper (`image.*`) is linked with a sensor and no custom title is specified, the plugin automatically omits the redundant image name (e.g. "citroen logo" or "mg logo"), showing only the live percentage (`69 %` / `84 %`) on the pill.
+
 # Quick Actions & Clock 0.2.20
 
 - **Throttled sequential polling (fixes "At most 8 KS commands may be pending")**: Implemented a sequential polling queue with at most 1 command in flight at a time. Prevents filling Kiosk Satellite's command buffer (limit 8) when polling multiple display entities, linked sensors, and visibility rules simultaneously.

@@ -885,8 +885,12 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
             }
 
             String friendly;
-            if (customLabel != null && !customLabel.isEmpty()) {
+            if (spec.emptyTitle) {
+                friendly = "";
+            } else if (customLabel != null && !customLabel.isEmpty()) {
                 friendly = customLabel;
+            } else if (displayEntity.startsWith("image.") && linkedSensor) {
+                friendly = "";
             } else if (displaySnap != null) {
                 friendly = attr(displaySnap.attributes, "friendly_name", displayEntity);
             } else if (statusSnap != null) {
