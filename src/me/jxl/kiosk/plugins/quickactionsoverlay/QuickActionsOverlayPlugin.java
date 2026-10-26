@@ -903,7 +903,7 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
             }
 
             if (!picture.isEmpty()) {
-                loadPicture(item, picture, batteryLevel, coloredBattery);
+                loadPicture(item, picture, batteryLevel, coloredBattery, !shouldShowLabel);
             } else if (battery) {
                 item.picture = "";
                 item.leading.setBatteryLevel(batteryLevel, coloredBattery, item.label.getCurrentTextColor(), !shouldShowLabel);
@@ -1004,7 +1004,7 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
         }
     }
 
-    private void loadPicture(ItemViews item, String picture, int batteryLevel, boolean colored) {
+    private void loadPicture(ItemViews item, String picture, int batteryLevel, boolean colored, boolean showNumberInside) {
         if (picture.equals(item.picture)) {
             if (item.leading.getBitmap() != null) {
                 item.leading.setPicture(item.leading.getBitmap(), batteryLevel, colored);
@@ -1012,13 +1012,19 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
             return;
         }
         item.picture = picture;
+        if (item.leading.getBitmap() == null && batteryLevel >= 0) {
+            item.leading.setBatteryLevel(batteryLevel, colored, item.label.getCurrentTextColor(), showNumberInside);
+        }
         String url = resolveHaUrl(picture);
         if (url == null || io == null) return;
         io.execute(() -> {
             Bitmap bitmap = fetchBitmap(url);
             main.post(() -> {
-                if (bitmap != null && picture.equals(item.picture)) {
+                if (!picture.equals(item.picture)) return;
+                if (bitmap != null) {
                     item.leading.setPicture(bitmap, batteryLevel, colored);
+                } else if (batteryLevel >= 0) {
+                    item.leading.setBatteryLevel(batteryLevel, colored, item.label.getCurrentTextColor(), showNumberInside);
                 }
             });
         });
@@ -1595,20 +1601,7 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
             canvas.drawCircle(cx, cy, radius, paint);
 
             Bitmap b = bitmap;
-            if (battery) {
-                if (showNumberInside && batteryLevel >= 0) {
-                    text.setColor(Color.WHITE);
-                    float density = getResources().getDisplayMetrics().scaledDensity;
-                    String value = batteryLevel + "%";
-                    float sp = value.length() >= 4 ? 10f : value.length() >= 3 ? 12f : 14f;
-                    text.setTextSize(sp * density);
-                    Paint.FontMetrics fm = text.getFontMetrics();
-                    float baseline = cy - (fm.ascent + fm.descent) / 2f;
-                    canvas.drawText(value, cx, baseline, text);
-                } else {
-                    drawBattery(canvas, cx, cy, size);
-                }
-            } else if (b != null && b.getWidth() > 0 && b.getHeight() > 0) {
+            if (b != null && b.getWidth() > 0 && b.getHeight() > 0) {
                 int bw = b.getWidth();
                 int bh = b.getHeight();
                 int crop;
@@ -1629,6 +1622,19 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
                 canvas.clipPath(clip);
                 canvas.drawBitmap(b, src, dst, paint);
                 canvas.restoreToCount(save);
+            } else if (battery) {
+                if (showNumberInside && batteryLevel >= 0) {
+                    text.setColor(Color.WHITE);
+                    float density = getResources().getDisplayMetrics().scaledDensity;
+                    String value = batteryLevel + "%";
+                    float sp = value.length() >= 4 ? 10f : value.length() >= 3 ? 12f : 14f;
+                    text.setTextSize(sp * density);
+                    Paint.FontMetrics fm = text.getFontMetrics();
+                    float baseline = cy - (fm.ascent + fm.descent) / 2f;
+                    canvas.drawText(value, cx, baseline, text);
+                } else {
+                    drawBattery(canvas, cx, cy, size);
+                }
             } else {
                 String value = badgeText == null ? "•" : badgeText;
                 float density = getResources().getDisplayMetrics().scaledDensity;

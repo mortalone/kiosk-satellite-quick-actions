@@ -1,3 +1,9 @@
+# Quick Actions & Clock 0.2.18
+
+- **Car logo & picture rendering fix**: Prioritize circular bitmap rendering over battery fallback in `LeadingView.onDraw`, ensuring loaded images (e.g. car logos or person avatars) are always rendered with the colored battery ring border.
+- **Immediate battery placeholder**: While an entity picture is being downloaded over the network or if image decoding fails (e.g. invalid URL), the view immediately falls back to displaying the linked battery state/icon rather than an empty dot.
+- **Bundled car logo PNGs (`assets/icons/`)**: Added true raster PNG car logos for Citroën and MG in `assets/icons/` for direct, reliable use in Home Assistant image template helpers (avoiding Android `BitmapFactory` incompatibility with SVG endpoints).
+
 # Quick Actions & Clock 0.2.17
 
 - **Micro button heights (down to 24 dp)**: Total button height can now be scaled from 24 dp up to 132 dp (step 2 dp). Avatar circle, padding, and text scale cleanly for ultra-compact overlays.
