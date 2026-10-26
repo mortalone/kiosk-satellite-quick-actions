@@ -921,14 +921,23 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
 
             if (shouldShowLabel) {
                 item.label.setVisibility(View.VISIBLE);
+                boolean singleLine;
                 if (stateLine.isEmpty()) {
                     item.label.setText(friendly);
+                    singleLine = true;
                 } else if (friendly.isEmpty()) {
                     item.label.setText(stateLine);
+                    singleLine = true;
                 } else {
                     String cleanTitle = EntityPresentation.singleLineTitle(friendly, 14);
                     item.label.setText(cleanTitle + "\n" + stateLine);
+                    singleLine = false;
                 }
+
+                float baseSize = Math.max(9f, Math.min(14f, buttonHeightDp * 14f / 76f));
+                float singleSize = Math.max(12f, Math.min(18f, buttonHeightDp * 20f / 76f));
+                item.label.setTextSize(singleLine ? singleSize : baseSize);
+                item.label.setTypeface(Typeface.create(Typeface.DEFAULT, singleLine ? Typeface.BOLD : Typeface.NORMAL));
             } else {
                 item.label.setVisibility(View.GONE);
             }

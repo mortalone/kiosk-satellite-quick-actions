@@ -1,3 +1,7 @@
+# Quick Actions & Clock 0.2.22
+
+- **Larger & bold single-line text**: When an item has only a single line of text (e.g. just the percentage `69 %` or a standalone title), the text size dynamically scales up by ~40% (from 9sp up to 13–14sp at compact button heights) and applies `Typeface.BOLD` for crisp, effortless readability. Multi-line items seamlessly retain their standard two-line typography.
+
 # Quick Actions & Clock 0.2.21
 
 - **Support explicit empty title (`image | | sensor`)**: Writing an empty middle pipe (e.g. `image.citroen_logo | | sensor.citroen_batteri`) explicitly omits the title, displaying only the battery percentage (`69 %`) next to the logo.
