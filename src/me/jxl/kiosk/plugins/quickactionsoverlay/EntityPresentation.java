@@ -101,23 +101,40 @@ final class EntityPresentation {
 
     static final class EntitySpec {
         final String displayEntity;
+        final String displayAttribute;
         final String linkedSensor;
+        final String sensorAttribute;
+        final String secondarySensor;
+        final String secondaryAttribute;
         final String customLabel;
         final boolean emptyTitle;
         final boolean explicitHide;
 
-        EntitySpec(String displayEntity, String linkedSensor, String customLabel, boolean emptyTitle, boolean explicitHide) {
+        EntitySpec(String displayEntity, String displayAttribute,
+                   String linkedSensor, String sensorAttribute,
+                   String secondarySensor, String secondaryAttribute,
+                   String customLabel, boolean emptyTitle, boolean explicitHide) {
             this.displayEntity = displayEntity == null ? "" : displayEntity.trim();
+            this.displayAttribute = displayAttribute == null || displayAttribute.trim().isEmpty() ? null : displayAttribute.trim();
             this.linkedSensor = linkedSensor == null ? "" : linkedSensor.trim();
+            this.sensorAttribute = sensorAttribute == null || sensorAttribute.trim().isEmpty() ? null : sensorAttribute.trim();
+            this.secondarySensor = secondarySensor == null ? "" : secondarySensor.trim();
+            this.secondaryAttribute = secondaryAttribute == null || secondaryAttribute.trim().isEmpty() ? null : secondaryAttribute.trim();
             this.customLabel = customLabel == null || customLabel.trim().isEmpty() ? null : customLabel.trim();
             this.emptyTitle = emptyTitle;
             this.explicitHide = explicitHide;
+        }
+
+        EntitySpec(String displayEntity, String linkedSensor, String customLabel, boolean emptyTitle, boolean explicitHide) {
+            this(displayEntity, null, linkedSensor, null, "", null, customLabel, emptyTitle, explicitHide);
         }
     }
 
     static boolean isEntityId(String s) {
         if (s == null) return false;
         String t = s.trim().toLowerCase(Locale.ROOT);
+        int hash = t.indexOf('#');
+        if (hash >= 0) t = t.substring(0, hash).trim();
         int dot = t.indexOf('.');
         return dot > 0 && dot < t.length() - 1 && !t.contains(" ");
     }
@@ -125,11 +142,16 @@ final class EntityPresentation {
     static boolean isSensorDomain(String s) {
         if (s == null) return false;
         String t = s.trim().toLowerCase(Locale.ROOT);
+        int hash = t.indexOf('#');
+        if (hash >= 0) t = t.substring(0, hash).trim();
         return t.startsWith("sensor.") || t.startsWith("binary_sensor.");
     }
 
     static EntitySpec parseSpec(String rawDisplay, String rawAction) {
-        String disp = "", sensor = "", label = null;
+        String disp = "", dispAttr = null;
+        String sensor = "", sensorAttr = null;
+        String secondary = "", secondaryAttr = null;
+        String label = null, pendingAttr = null;
         boolean hide = false, emptyTitle = false;
 
         if (rawDisplay != null) {
@@ -144,13 +166,46 @@ final class EntityPresentation {
                     }
                     continue;
                 }
-                if (isEntityId(p)) {
-                    if (isSensorDomain(p)) {
-                        if (sensor.isEmpty()) sensor = p;
-                        else if (disp.isEmpty()) disp = p;
+                if (p.startsWith("#")) {
+                    String attr = p.substring(1).trim();
+                    if (!secondary.isEmpty()) {
+                        secondaryAttr = attr;
+                    } else if (!sensor.isEmpty()) {
+                        sensorAttr = attr;
+                    } else if (!disp.isEmpty()) {
+                        dispAttr = attr;
                     } else {
-                        if (disp.isEmpty()) disp = p;
-                        else if (sensor.isEmpty()) sensor = p;
+                        pendingAttr = attr;
+                    }
+                    continue;
+                }
+                if (isEntityId(p)) {
+                    int hash = p.indexOf('#');
+                    String entityPart = hash >= 0 ? p.substring(0, hash).trim() : p;
+                    String entityAttr = hash >= 0 ? p.substring(hash + 1).trim() : null;
+
+                    if (isSensorDomain(entityPart)) {
+                        if (sensor.isEmpty()) {
+                            sensor = entityPart;
+                            sensorAttr = entityAttr;
+                        } else if (secondary.isEmpty()) {
+                            secondary = entityPart;
+                            secondaryAttr = entityAttr;
+                        } else if (disp.isEmpty()) {
+                            disp = entityPart;
+                            dispAttr = entityAttr;
+                        }
+                    } else {
+                        if (disp.isEmpty()) {
+                            disp = entityPart;
+                            dispAttr = entityAttr;
+                        } else if (sensor.isEmpty()) {
+                            sensor = entityPart;
+                            sensorAttr = entityAttr;
+                        } else if (secondary.isEmpty()) {
+                            secondary = entityPart;
+                            secondaryAttr = entityAttr;
+                        }
                     }
                 } else {
                     label = p;
@@ -158,21 +213,150 @@ final class EntityPresentation {
             }
         }
 
-        if (sensor.isEmpty() && rawAction != null) {
+        if (rawAction != null) {
             String act = rawAction.trim();
             int pipe = act.indexOf('|');
             if (pipe >= 0) act = act.substring(0, pipe).trim();
             if (isSensorDomain(act)) {
-                sensor = act;
+                int hash = act.indexOf('#');
+                String actEntity = hash >= 0 ? act.substring(0, hash).trim() : act;
+                String actAttr = hash >= 0 ? act.substring(hash + 1).trim() : null;
+                if (sensor.isEmpty()) {
+                    sensor = actEntity;
+                    if (actAttr != null && sensorAttr == null) sensorAttr = actAttr;
+                } else if (secondary.isEmpty() && !actEntity.equals(sensor)) {
+                    secondary = actEntity;
+                    if (actAttr != null && secondaryAttr == null) secondaryAttr = actAttr;
+                }
             }
         }
 
         if (disp.isEmpty() && !sensor.isEmpty()) {
             disp = sensor;
-            sensor = "";
+            dispAttr = sensorAttr;
+            sensor = secondary;
+            sensorAttr = secondaryAttr;
+            secondary = "";
+            secondaryAttr = null;
         }
 
-        return new EntitySpec(disp, sensor, label, emptyTitle, hide);
+        if (pendingAttr != null) {
+            if (!secondary.isEmpty() && secondaryAttr == null) {
+                secondaryAttr = pendingAttr;
+            } else if (!sensor.isEmpty() && sensorAttr == null) {
+                sensorAttr = pendingAttr;
+            } else if (dispAttr == null) {
+                dispAttr = pendingAttr;
+            }
+        }
+
+        return new EntitySpec(disp, dispAttr, sensor, sensorAttr, secondary, secondaryAttr, label, emptyTitle, hide);
+    }
+
+    static Object getAttribute(java.util.Map<?, ?> attributes, String attrSpec) {
+        if (attributes == null || attributes.isEmpty() || attrSpec == null || attrSpec.trim().isEmpty()) {
+            return null;
+        }
+        String spec = attrSpec.trim();
+        if (spec.startsWith("#")) spec = spec.substring(1).trim();
+        if (spec.isEmpty()) return null;
+
+        try {
+            int idx = Integer.parseInt(spec);
+            if (idx >= 1 && idx <= attributes.size()) {
+                int count = 1;
+                for (java.util.Map.Entry<?, ?> e : attributes.entrySet()) {
+                    if (count == idx) {
+                        return e.getValue();
+                    }
+                    count++;
+                }
+            }
+        } catch (NumberFormatException ignored) {}
+
+        if (attributes.containsKey(spec)) {
+            return attributes.get(spec);
+        }
+
+        for (java.util.Map.Entry<?, ?> e : attributes.entrySet()) {
+            if (String.valueOf(e.getKey()).equalsIgnoreCase(spec)) {
+                return e.getValue();
+            }
+        }
+
+        String norm = spec.toLowerCase(Locale.ROOT).replace(' ', '_').replace('-', '_');
+        for (java.util.Map.Entry<?, ?> e : attributes.entrySet()) {
+            String k = String.valueOf(e.getKey()).toLowerCase(Locale.ROOT).replace(' ', '_').replace('-', '_');
+            if (k.equals(norm) || k.replace("_", "").equals(norm.replace("_", ""))) {
+                return e.getValue();
+            }
+        }
+
+        for (java.util.Map.Entry<?, ?> e : attributes.entrySet()) {
+            String k = String.valueOf(e.getKey()).toLowerCase(Locale.ROOT);
+            if (k.contains(norm) && !k.contains("unit") && !k.contains("friendly")) {
+                return e.getValue();
+            }
+        }
+
+        return null;
+    }
+
+    static String formatAttributeValue(Object val, String attrName, java.util.Map<?, ?> allAttributes) {
+        if (val == null) return "";
+        if (val instanceof Boolean) {
+            return ((Boolean) val) ? "Ja" : "Nej";
+        }
+        String raw = String.valueOf(val).trim();
+        if (raw.endsWith(".0")) {
+            raw = raw.substring(0, raw.length() - 2);
+        }
+
+        if (raw.length() >= 16 && raw.charAt(4) == '-' && raw.charAt(7) == '-' && raw.charAt(10) == 'T' && raw.charAt(13) == ':') {
+            try {
+                int t = raw.indexOf('T');
+                if (t > 0 && t + 6 <= raw.length()) {
+                    return raw.substring(t + 1, t + 6);
+                }
+            } catch (Throwable ignored) {}
+        }
+
+        String name = attrName == null ? "" : attrName.toLowerCase(Locale.ROOT);
+        String unit = "";
+        if (allAttributes != null) {
+            Object u = allAttributes.get(attrName + "_unit");
+            if (u == null) u = allAttributes.get(attrName + "_unit_of_measurement");
+            if (u != null) {
+                unit = String.valueOf(u).trim();
+            } else {
+                Object uom = allAttributes.get("unit_of_measurement");
+                if (uom != null) {
+                    String candidate = String.valueOf(uom).trim();
+                    if (name.contains("temp") && (candidate.contains("°") || candidate.equalsIgnoreCase("c") || candidate.equalsIgnoreCase("f"))) {
+                        unit = candidate;
+                    } else if ((name.contains("range") || name.contains("distance") || name.contains("autonomi")) && (candidate.equalsIgnoreCase("km") || candidate.equalsIgnoreCase("mi"))) {
+                        unit = candidate;
+                    } else if ((name.contains("percent") || name.contains("soc") || name.contains("level") || name.contains("battery")) && candidate.equals("%")) {
+                        unit = candidate;
+                    }
+                }
+            }
+        }
+
+        if (unit.isEmpty()) {
+            if (name.contains("range") || name.contains("autonomi") || name.contains("distance")) {
+                if (!raw.endsWith("km") && !raw.endsWith("mi")) unit = "km";
+            } else if (name.contains("temp")) {
+                if (!raw.endsWith("°C") && !raw.endsWith("°F") && !raw.endsWith("°")) unit = "°C";
+            } else if (name.contains("level") || name.contains("soc") || name.contains("percent")) {
+                if (!raw.endsWith("%")) unit = "%";
+            }
+        }
+
+        if (!unit.isEmpty() && !raw.endsWith(unit)) {
+            return raw + " " + unit;
+        }
+        return raw;
     }
 
     static String singleLineTitle(String title, int maxChars) {

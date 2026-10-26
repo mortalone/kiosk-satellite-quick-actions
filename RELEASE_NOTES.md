@@ -1,3 +1,14 @@
+# Quick Actions & Clock 0.2.23
+
+- **Support for entity attributes (`#range`, `#attr`, `#3`)**:
+  - Specify attributes directly via suffix (e.g. `sensor.lsjwx4098tn028453_soc#range`, `climate.stue#current_temperature`, `sensor.car#3`) or as a separate pipe segment (e.g. `image.citroen_logo | sensor.citroen_batteri | #range`).
+  - Supports numeric attribute indices (e.g. `#1`, `#2`, `#3`) to select attributes by position.
+  - Case-insensitive, underscore-tolerant matching (e.g. `#range` matches `range`, `remaining_range`, or `Range`).
+  - Intelligent unit formatting: auto-appends units (`km` for range/distance/autonomi, `°C` for temperature, `%` for battery/level), strips trailing `.0`, and formats timestamps (`HH:mm`).
+- **Secondary sensor support in multi-entity pipe**:
+  - Pair an avatar with two sensors (e.g. `image.mg_logo | sensor.lsjwx4098tn028453_soc | sensor.lsjwx4098tn028453_range`), displaying battery level on line 1 (`84 %`) and range on line 2 (`322 km`).
+  - When an attribute is specified alongside a primary sensor (e.g. `image.citroen_logo | sensor.citroen_batteri | #range`), line 1 shows the battery percentage (`69 %`) and line 2 shows the formatted attribute (`240 km`).
+
 # Quick Actions & Clock 0.2.22
 
 - **Larger & bold single-line text**: When an item has only a single line of text (e.g. just the percentage `69 %` or a standalone title), the text size dynamically scales up by ~40% (from 9sp up to 13–14sp at compact button heights) and applies `Typeface.BOLD` for crisp, effortless readability. Multi-line items seamlessly retain their standard two-line typography.

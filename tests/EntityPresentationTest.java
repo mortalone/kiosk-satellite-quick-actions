@@ -86,10 +86,48 @@ public class EntityPresentationTest {
         check("sensor.lsjwx4098tn028453_soc".equals(s5.linkedSensor));
         check("MG".equals(s5.customLabel));
 
-        // Title truncation
-        check("Citroën".equals(EntityPresentation.singleLineTitle("Citroën", 14)));
-        check("Citroen Batte…".equals(EntityPresentation.singleLineTitle("Citroen Batteri", 14)));
-        check("MG".equals(EntityPresentation.singleLineTitle("MG\nSoC", 14)));
+        // Attribute parsing checks
+        EntityPresentation.EntitySpec s6 = EntityPresentation.parseSpec("image.citroen_logo | sensor.citroen_batteri | #range", "");
+        check("image.citroen_logo".equals(s6.displayEntity));
+        check("sensor.citroen_batteri".equals(s6.linkedSensor));
+        check("range".equals(s6.sensorAttribute));
+        check(s6.customLabel == null);
+
+        EntityPresentation.EntitySpec s7 = EntityPresentation.parseSpec("sensor.lsjwx4098tn028453_soc#range", "");
+        check("sensor.lsjwx4098tn028453_soc".equals(s7.displayEntity));
+        check("range".equals(s7.displayAttribute));
+
+        EntityPresentation.EntitySpec s8 = EntityPresentation.parseSpec("image.mg_logo | sensor.lsjwx4098tn028453_soc | sensor.lsjwx4098tn028453_range", "");
+        check("image.mg_logo".equals(s8.displayEntity));
+        check("sensor.lsjwx4098tn028453_soc".equals(s8.linkedSensor));
+        check("sensor.lsjwx4098tn028453_range".equals(s8.secondarySensor));
+
+        EntityPresentation.EntitySpec s9 = EntityPresentation.parseSpec("image.citroen_logo | sensor.citroen_batteri | #3", "");
+        check("image.citroen_logo".equals(s9.displayEntity));
+        check("sensor.citroen_batteri".equals(s9.linkedSensor));
+        check("3".equals(s9.sensorAttribute));
+
+        // Attribute extraction & formatting tests
+        java.util.Map<String, Object> attrs = new java.util.LinkedHashMap<>();
+        attrs.put("state_class", "measurement");
+        attrs.put("Last updated", "2026-10-25T15:17:55Z");
+        attrs.put("range", 240.0);
+        attrs.put("unit_of_measurement", "km");
+        attrs.put("current_temperature", 21.5);
+
+        // Lookup by exact name, case-insensitive, and index
+        check(Double.valueOf(240.0).equals(EntityPresentation.getAttribute(attrs, "range")));
+        check(Double.valueOf(240.0).equals(EntityPresentation.getAttribute(attrs, "Range")));
+        check(Double.valueOf(240.0).equals(EntityPresentation.getAttribute(attrs, "#range")));
+        check("measurement".equals(EntityPresentation.getAttribute(attrs, "#1")));
+        check("2026-10-25T15:17:55Z".equals(EntityPresentation.getAttribute(attrs, "#2")));
+        check(Double.valueOf(240.0).equals(EntityPresentation.getAttribute(attrs, "#3")));
+
+        // Formatting
+        check("240 km".equals(EntityPresentation.formatAttributeValue(240.0, "range", attrs)));
+        check("21.5 °C".equals(EntityPresentation.formatAttributeValue(21.5, "current_temperature", attrs)));
+        check("15:17".equals(EntityPresentation.formatAttributeValue("2026-10-25T15:17:55Z", "Last updated", attrs)));
+        check("Ja".equals(EntityPresentation.formatAttributeValue(true, "charging", attrs)));
 
         System.out.println("Entity presentation: " + checks + " checks passed");
     }

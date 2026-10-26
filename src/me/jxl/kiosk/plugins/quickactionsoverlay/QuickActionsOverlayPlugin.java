@@ -372,6 +372,7 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
             EntityPresentation.EntitySpec spec = EntityPresentation.parseSpec(displayEntities[i], actionEntities[i]);
             if (!spec.displayEntity.isEmpty()) wanted.add(spec.displayEntity);
             if (!spec.linkedSensor.isEmpty()) wanted.add(spec.linkedSensor);
+            if (!spec.secondarySensor.isEmpty()) wanted.add(spec.secondarySensor);
             String actionClean = cleanEntity(actionEntities[i]);
             if (!actionClean.isEmpty() && isSensorEntity(actionClean)) {
                 wanted.add(actionClean);
@@ -870,10 +871,11 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
 
             EntitySnapshot displaySnap = snapshots.get(displayEntity);
             EntitySnapshot statusSnap = linkedSensor ? snapshots.get(actionEntity) : displaySnap;
+            EntitySnapshot secondarySnap = !spec.secondarySensor.isEmpty() ? snapshots.get(spec.secondarySensor) : null;
 
             boolean shouldShowLabel = showLabels && !explicitHide;
 
-            if (displaySnap == null && statusSnap == null) {
+            if (displaySnap == null && statusSnap == null && secondarySnap == null) {
                 if (shouldShowLabel) {
                     item.label.setVisibility(View.VISIBLE);
                     String unknownName = (customLabel != null && !customLabel.isEmpty()) ? customLabel : displayEntity;
@@ -889,7 +891,7 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
                 friendly = "";
             } else if (customLabel != null && !customLabel.isEmpty()) {
                 friendly = customLabel;
-            } else if (displayEntity.startsWith("image.") && linkedSensor) {
+            } else if (displayEntity.startsWith("image.") && (linkedSensor || secondarySnap != null)) {
                 friendly = "";
             } else if (displaySnap != null) {
                 friendly = attr(displaySnap.attributes, "friendly_name", displayEntity);
@@ -919,19 +921,59 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
                             ? ""
                             : displayState);
 
+            String targetAttr = linkedSensor ? spec.sensorAttribute : spec.displayAttribute;
+            String attrFormatted = null;
+            if (targetAttr != null) {
+                Object resolvedAttr = statusSnap != null ? EntityPresentation.getAttribute(statusSnap.attributes, targetAttr) : null;
+                if (resolvedAttr == null && displaySnap != null) {
+                    resolvedAttr = EntityPresentation.getAttribute(displaySnap.attributes, targetAttr);
+                }
+                if (resolvedAttr != null) {
+                    java.util.Map<?, ?> attrMap = statusSnap != null ? statusSnap.attributes : (displaySnap != null ? displaySnap.attributes : null);
+                    attrFormatted = EntityPresentation.formatAttributeValue(resolvedAttr, targetAttr, attrMap);
+                }
+            }
+
+            String secondaryValue = null;
+            if (secondarySnap != null) {
+                String secState = secondarySnap.state;
+                String secUnit = attr(secondarySnap.attributes, "unit_of_measurement", "").trim();
+                String secDeviceClass = attr(secondarySnap.attributes, "device_class", "");
+                String secBadge = percentageBadge(secState, secUnit, secDeviceClass);
+                String secDisplay = EntityPresentation.text(spec.secondarySensor, secState, secDeviceClass, secUnit);
+                secondaryValue = !secBadge.isEmpty() ? secBadge : (!secDisplay.isEmpty() ? secDisplay : secState);
+                if (spec.secondaryAttribute != null) {
+                    Object secAttrVal = EntityPresentation.getAttribute(secondarySnap.attributes, spec.secondaryAttribute);
+                    if (secAttrVal != null) {
+                        secondaryValue = EntityPresentation.formatAttributeValue(secAttrVal, spec.secondaryAttribute, secondarySnap.attributes);
+                    }
+                }
+            } else if (attrFormatted != null && !stateLine.isEmpty()) {
+                secondaryValue = attrFormatted;
+            } else if (attrFormatted != null) {
+                stateLine = attrFormatted;
+            }
+
             if (shouldShowLabel) {
                 item.label.setVisibility(View.VISIBLE);
                 boolean singleLine;
-                if (stateLine.isEmpty()) {
-                    item.label.setText(friendly);
-                    singleLine = true;
-                } else if (friendly.isEmpty()) {
-                    item.label.setText(stateLine);
-                    singleLine = true;
-                } else {
+                if (!friendly.isEmpty()) {
                     String cleanTitle = EntityPresentation.singleLineTitle(friendly, 14);
-                    item.label.setText(cleanTitle + "\n" + stateLine);
+                    String val = secondaryValue != null ? secondaryValue : stateLine;
+                    if (val.isEmpty()) {
+                        item.label.setText(cleanTitle);
+                        singleLine = true;
+                    } else {
+                        item.label.setText(cleanTitle + "\n" + val);
+                        singleLine = false;
+                    }
+                } else if (secondaryValue != null && !stateLine.isEmpty()) {
+                    item.label.setText(stateLine + "\n" + secondaryValue);
                     singleLine = false;
+                } else {
+                    String val = !stateLine.isEmpty() ? stateLine : (secondaryValue != null ? secondaryValue : "");
+                    item.label.setText(val);
+                    singleLine = true;
                 }
 
                 float baseSize = Math.max(9f, Math.min(14f, buttonHeightDp * 14f / 76f));
@@ -1546,7 +1588,9 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
     static String cleanEntity(String raw) {
         if (raw == null) return "";
         int pipe = raw.indexOf('|');
-        return pipe >= 0 ? raw.substring(0, pipe).trim() : raw.trim();
+        String s = pipe >= 0 ? raw.substring(0, pipe).trim() : raw.trim();
+        int hash = s.indexOf('#');
+        return hash >= 0 ? s.substring(0, hash).trim() : s;
     }
 
     static String parseCustomLabel(String raw) {
