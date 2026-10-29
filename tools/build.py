@@ -51,7 +51,7 @@ with tempfile.TemporaryDirectory(prefix=f'ks-{manifest["id"]}-') as td:
     dex = td / "dex"
     sdk_classes.mkdir(); classes.mkdir(); dex.mkdir()
 
-    subprocess.run(["javac", "--release", "8", "-d", str(sdk_classes),
+    subprocess.run(["javac", "--release", "8", "-cp", str(platform), "-d", str(sdk_classes),
                     *map(str, sorted((ROOT / "sdk/src").rglob("*.java")))], check=True)
     sdk_jar = td / "sdk.jar"
     subprocess.run(["jar", "cf", str(sdk_jar), "-C", str(sdk_classes), "."], check=True)
