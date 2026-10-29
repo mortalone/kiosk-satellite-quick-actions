@@ -811,7 +811,9 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
             item.setPadding(pad, pad, pad, pad);
             item.setBackground(cardBackground(0xC7222328, 999));
             item.setClickable(true);
-            item.setOnClickListener(v -> performAction(index));
+            item.setOnClickListener(v -> {
+                try { performAction(index); } catch (Throwable ignored) {}
+            });
 
             LeadingView leading = new LeadingView(context);
             int avatarSize = Math.max(dp(18), dp(buttonHeightDp) - 2 * pad);
@@ -859,6 +861,7 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
             boolean visible = itemVisible(item.index);
             item.root.setVisibility(visible ? View.VISIBLE : View.GONE);
             if (!visible) continue;
+            if (item.flashing) continue; // press confirmation is showing; it restores itself
 
             String rawDisplay = displayEntities[item.index];
             String rawAction = actionEntities[item.index];
@@ -1119,16 +1122,20 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
         });
     }
 
-    private void performAction(int index) {
+    /**
+     * Resolves what a pill does when tapped: {domain, service, entity_id}, or
+     * null when the pill has no action (display-only / sensor-only pills).
+     */
+    private String[] resolveAction(int index) {
         EntityPresentation.EntitySpec spec = EntityPresentation.parseSpec(displayEntities[index], actionEntities[index]);
         String entity = cleanEntity(actionEntities[index]);
         if (entity.isEmpty() || isSensorEntity(entity)) {
             entity = spec.displayEntity;
         }
-        if (entity.isEmpty() || isSensorEntity(entity) || host == null) return;
+        if (entity == null || entity.isEmpty() || isSensorEntity(entity)) return null;
 
         int dot = entity.indexOf('.');
-        if (dot <= 0) return;
+        if (dot <= 0) return null;
         String domain = entity.substring(0, dot);
         String service;
 
@@ -1138,23 +1145,81 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
         else if ("scene".equals(domain)) service = "turn_on";
         else if ("switch".equals(domain) || "input_boolean".equals(domain) ||
                 "light".equals(domain) || "fan".equals(domain)) service = "toggle";
-        else {
+        else return null;
+        return new String[] { domain, service, entity };
+    }
+
+    private void performAction(int index) {
+        // Runs on the host's UI thread. Nothing in here may throw: an uncaught
+        // exception in a click listener kills the whole Kiosk Satellite process.
+        try {
+            String[] action = resolveAction(index);
+            if (action == null) return; // no action configured: no confirmation either
+            final PluginHost owner = host;
+            if (owner == null) return;
+
+            showFeedback(index, FEEDBACK_SENDING, "\u2026", 10000);
+
+            Map<String, Object> message = new HashMap<>();
+            message.put("type", "call_service");
+            message.put("domain", action[0]);
+            message.put("service", action[1]);
+            message.put("target", Collections.singletonMap("entity_id", action[2]));
+            final String actionEntity = action[2];
+            try {
+                owner.haCall(message, (ok, data, error) -> main.post(() -> {
+                    if (host != owner) return;
+                    if (ok) {
+                        showFeedback(index, FEEDBACK_OK, "\u2713 Udf\u00f8rt", 1300);
+                    } else {
+                        showFeedback(index, FEEDBACK_ERROR, "\u2715 Fejl", 2500);
+                        try {
+                            owner.status("Quick action failed: " +
+                                    (error == null ? actionEntity : error), true);
+                        } catch (Throwable ignored) {}
+                    }
+                }));
+            } catch (Throwable error) {
+                // Older Kiosk Satellite builds without the 'ha' capability.
+                showFeedback(index, FEEDBACK_ERROR, "\u2715 Fejl", 2500);
+                try { owner.status("Quick action failed: " + safeMessage(error), true); }
+                catch (Throwable ignored) {}
+            }
+        } catch (Throwable error) {
+            try { if (host != null) host.status("Quick action failed: " + safeMessage(error), true); }
+            catch (Throwable ignored) {}
+        }
+    }
+
+    private static final int FEEDBACK_SENDING = 0xE02F5D9E; // blue: tap registered, waiting for HA
+    private static final int FEEDBACK_OK = 0xE02E7D32;      // green: HA accepted the call
+    private static final int FEEDBACK_ERROR = 0xE0C62828;   // red: call failed
+
+    /**
+     * Confirms a tap on the pill itself: the pill changes colour and its label
+     * shows a short status text, then everything is restored. Feedback sits on
+     * the button because the user's eyes are already there, and it works on
+     * every surface (dashboard, screensaver, Fotoo) without extra windows.
+     */
+    private void showFeedback(int index, int color, String text, long holdMs) {
+        for (final ItemViews item : itemViews) {
+            if (item.index != index) continue;
+            if (item.restore != null) main.removeCallbacks(item.restore);
+            item.flashing = true;
+            item.root.setBackground(cardBackground(color, 999));
+            item.label.setVisibility(View.VISIBLE);
+            item.label.setText(text);
+            item.label.setTextSize(Math.max(12f, Math.min(18f, buttonHeightDp * 20f / 76f)));
+            item.label.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
+            item.restore = () -> {
+                item.flashing = false;
+                item.restore = null;
+                item.root.setBackground(cardBackground(0xC7222328, 999));
+                refreshRail();
+            };
+            main.postDelayed(item.restore, holdMs);
             return;
         }
-
-        Map<String, Object> args = new HashMap<>();
-        args.put("domain", domain);
-        args.put("service", service);
-        args.put("entity_id", entity);
-        final String actionEntity = entity;
-        host.executeCommand("haCallService", args, (ok, data, error) -> {
-            if (!ok) {
-                host.status(
-                        "Quick action failed: " +
-                                (error == null ? actionEntity : error),
-                        true);
-            }
-        });
     }
 
     private void hideRail() {
@@ -1785,6 +1850,9 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
         final LeadingView leading;
         final TextView label;
         String picture = "";
+        /** True while the press confirmation (green check / red cross) is shown. */
+        boolean flashing;
+        Runnable restore;
         ItemViews(int index, View root, LeadingView leading, TextView label) {
             this.index = index;
             this.root = root;

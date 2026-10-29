@@ -1,3 +1,9 @@
+# Quick Actions & Clock 0.2.24
+
+- **Fix: tapping a pill crashed Kiosk Satellite** (whole app closed, Android asked for a launcher). Actions used the non-existent host command haCallService; they now use the SDK's host.haCall (call_service) and declare the new ha capability. The click path is wrapped so a plugin error can never take the host process down.
+- **Tap confirmation on the pill itself**: pills that have an action flash blue (..., tap registered), then green Udført on success or red Fejl on failure, then restore. Pills without an action give no feedback. Works on dashboard, screensaver and Fotoo.
+- Synced sdk/src with the current community SDK (adds haCall).
+
 # Quick Actions & Clock 0.2.23
 
 - **Support for entity attributes (`#range`, `#attr`, `#3`)**:
