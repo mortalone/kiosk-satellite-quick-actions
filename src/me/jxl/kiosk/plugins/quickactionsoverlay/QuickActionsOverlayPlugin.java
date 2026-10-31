@@ -33,6 +33,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.provider.Settings;
 import android.view.Gravity;
 import android.view.View;
@@ -861,7 +862,29 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
             boolean visible = itemVisible(item.index);
             item.root.setVisibility(visible ? View.VISIBLE : View.GONE);
             if (!visible) continue;
-            if (item.flashing) continue; // press confirmation is showing; it restores itself
+            if (item.flashing) {
+                if (item.status == STATUS_OK) {
+                    String rawDisplay = displayEntities[item.index];
+                    String rawAction = actionEntities[item.index];
+                    EntityPresentation.EntitySpec spec = EntityPresentation.parseSpec(rawDisplay, rawAction);
+                    String actionEntity = spec.linkedSensor.isEmpty() ? cleanEntity(rawAction) : spec.linkedSensor;
+                    if (actionEntity.isEmpty() || isSensorEntity(actionEntity)) {
+                        actionEntity = spec.displayEntity;
+                    }
+                    EntitySnapshot snap = snapshots.get(actionEntity);
+                    if (snap != null && snap.state != null) {
+                        String newHdr = null;
+                        if ("on".equalsIgnoreCase(snap.state)) newHdr = "\u2713 T\u00e6ndt";
+                        else if ("off".equalsIgnoreCase(snap.state)) newHdr = "\u2713 Slukket";
+                        if (newHdr != null && !newHdr.equals(item.header)) {
+                            item.header = newHdr;
+                            long elapsed = (SystemClock.uptimeMillis() - item.startTime) / 1000;
+                            updateFeedbackView(item, (int) elapsed);
+                        }
+                    }
+                }
+                continue; // press feedback timer is showing; it restores itself
+            }
 
             String rawDisplay = displayEntities[item.index];
             String rawAction = actionEntities[item.index];
@@ -1149,6 +1172,14 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
         return new String[] { domain, service, entity };
     }
 
+    private static final int STATUS_SENDING = 0;
+    private static final int STATUS_OK = 1;
+    private static final int STATUS_ERROR = 2;
+
+    private static final int FEEDBACK_SENDING = 0xE02F5D9E; // blue: tap registered, waiting for HA
+    private static final int FEEDBACK_OK = 0xE02E7D32;      // green: HA accepted the call / verified
+    private static final int FEEDBACK_ERROR = 0xE0C62828;   // red: call failed
+
     private void performAction(int index) {
         // Runs on the host's UI thread. Nothing in here may throw: an uncaught
         // exception in a click listener kills the whole Kiosk Satellite process.
@@ -1158,21 +1189,80 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
             final PluginHost owner = host;
             if (owner == null) return;
 
-            showFeedback(index, FEEDBACK_SENDING, "\u2026", 10000);
+            ItemViews targetItem = null;
+            for (ItemViews it : itemViews) {
+                if (it.index == index) {
+                    targetItem = it;
+                    break;
+                }
+            }
+            if (targetItem == null) return;
+            final ItemViews item = targetItem;
+
+            if (item.ticker != null) {
+                main.removeCallbacks(item.ticker);
+                item.ticker = null;
+            }
+
+            item.flashing = true;
+            item.status = STATUS_SENDING;
+            item.startTime = SystemClock.uptimeMillis();
+            item.header = "Sender\u2026";
+            item.root.setBackground(cardBackground(FEEDBACK_SENDING, 999));
+            updateFeedbackView(item, 0);
+
+            final Runnable ticker = new Runnable() {
+                @Override
+                public void run() {
+                    if (!item.flashing || item.ticker != this) return;
+                    long elapsed = (SystemClock.uptimeMillis() - item.startTime) / 1000;
+                    if (elapsed >= 20) {
+                        item.flashing = false;
+                        item.ticker = null;
+                        item.root.setBackground(cardBackground(0xC7222328, 999));
+                        refreshRail();
+                        return;
+                    }
+                    updateFeedbackView(item, (int) elapsed);
+                    main.postDelayed(this, 1000);
+                }
+            };
+            item.ticker = ticker;
+            main.postDelayed(ticker, 1000);
 
             Map<String, Object> message = new HashMap<>();
             message.put("type", "call_service");
             message.put("domain", action[0]);
             message.put("service", action[1]);
             message.put("target", Collections.singletonMap("entity_id", action[2]));
+            final String actionDomain = action[0];
             final String actionEntity = action[2];
             try {
                 owner.haCall(message, (ok, data, error) -> main.post(() -> {
-                    if (host != owner) return;
+                    if (host != owner || !item.flashing) return;
+                    long elapsed = (SystemClock.uptimeMillis() - item.startTime) / 1000;
                     if (ok) {
-                        showFeedback(index, FEEDBACK_OK, "\u2713 Udf\u00f8rt", 1300);
+                        item.status = STATUS_OK;
+                        item.root.setBackground(cardBackground(FEEDBACK_OK, 999));
+                        String header = "\u2713 Udf\u00f8rt";
+                        if ("script".equals(actionDomain)) header = "\u2713 Startet";
+                        else if ("automation".equals(actionDomain)) header = "\u2713 Udl\u00f8st";
+                        else if ("scene".equals(actionDomain)) header = "\u2713 Aktiveret";
+                        else if ("switch".equals(actionDomain) || "light".equals(actionDomain) ||
+                                "fan".equals(actionDomain) || "input_boolean".equals(actionDomain)) {
+                            EntitySnapshot snap = snapshots.get(actionEntity);
+                            if (snap != null && snap.state != null) {
+                                if ("on".equalsIgnoreCase(snap.state)) header = "\u2713 T\u00e6ndt";
+                                else if ("off".equalsIgnoreCase(snap.state)) header = "\u2713 Slukket";
+                            }
+                        }
+                        item.header = header;
+                        updateFeedbackView(item, (int) elapsed);
                     } else {
-                        showFeedback(index, FEEDBACK_ERROR, "\u2715 Fejl", 2500);
+                        item.status = STATUS_ERROR;
+                        item.root.setBackground(cardBackground(FEEDBACK_ERROR, 999));
+                        item.header = "\u2715 Fejl";
+                        updateFeedbackView(item, (int) elapsed);
                         try {
                             owner.status("Quick action failed: " +
                                     (error == null ? actionEntity : error), true);
@@ -1180,8 +1270,11 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
                     }
                 }));
             } catch (Throwable error) {
-                // Older Kiosk Satellite builds without the 'ha' capability.
-                showFeedback(index, FEEDBACK_ERROR, "\u2715 Fejl", 2500);
+                long elapsed = (SystemClock.uptimeMillis() - item.startTime) / 1000;
+                item.status = STATUS_ERROR;
+                item.root.setBackground(cardBackground(FEEDBACK_ERROR, 999));
+                item.header = "\u2715 Fejl";
+                updateFeedbackView(item, (int) elapsed);
                 try { owner.status("Quick action failed: " + safeMessage(error), true); }
                 catch (Throwable ignored) {}
             }
@@ -1191,40 +1284,33 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
         }
     }
 
-    private static final int FEEDBACK_SENDING = 0xE02F5D9E; // blue: tap registered, waiting for HA
-    private static final int FEEDBACK_OK = 0xE02E7D32;      // green: HA accepted the call
-    private static final int FEEDBACK_ERROR = 0xE0C62828;   // red: call failed
+    private void updateFeedbackView(ItemViews item, int elapsed) {
+        if (item == null || item.label == null) return;
+        item.label.setVisibility(View.VISIBLE);
+        int sec = Math.min(20, Math.max(0, elapsed));
+        String timeStr = sec + " sek";
 
-    /**
-     * Confirms a tap on the pill itself: the pill changes colour and its label
-     * shows a short status text, then everything is restored. Feedback sits on
-     * the button because the user's eyes are already there, and it works on
-     * every surface (dashboard, screensaver, Fotoo) without extra windows.
-     */
-    private void showFeedback(int index, int color, String text, long holdMs) {
-        for (final ItemViews item : itemViews) {
-            if (item.index != index) continue;
-            if (item.restore != null) main.removeCallbacks(item.restore);
-            item.flashing = true;
-            item.root.setBackground(cardBackground(color, 999));
-            item.label.setVisibility(View.VISIBLE);
-            item.label.setText(text);
-            item.label.setTextSize(Math.max(12f, Math.min(18f, buttonHeightDp * 20f / 76f)));
+        boolean compact = buttonHeightDp < 36;
+        if (compact) {
+            String prefix = item.status == STATUS_SENDING ? "\u23F3 " : (item.status == STATUS_OK ? "\u2713 " : "\u2715 ");
+            item.label.setText(prefix + sec + "s");
+            item.label.setTextSize(Math.max(10f, Math.min(15f, buttonHeightDp * 16f / 76f)));
             item.label.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
-            item.restore = () -> {
-                item.flashing = false;
-                item.restore = null;
-                item.root.setBackground(cardBackground(0xC7222328, 999));
-                refreshRail();
-            };
-            main.postDelayed(item.restore, holdMs);
-            return;
+        } else {
+            item.label.setText(item.header + "\n" + timeStr);
+            float baseSize = Math.max(9f, Math.min(13f, buttonHeightDp * 13f / 76f));
+            item.label.setTextSize(baseSize);
+            item.label.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
         }
     }
 
     private void hideRail() {
         View view = rail;
         rail = null;
+        for (ItemViews item : itemViews) {
+            if (item.ticker != null) main.removeCallbacks(item.ticker);
+            item.stopFeedback();
+        }
         itemViews.clear();
         removeOverlayView(view);
     }
@@ -1850,14 +1936,22 @@ public final class QuickActionsOverlayPlugin implements KioskPlugin {
         final LeadingView leading;
         final TextView label;
         String picture = "";
-        /** True while the press confirmation (green check / red cross) is shown. */
+        /** True while the press confirmation and 0-20s visual counter are active. */
         boolean flashing;
-        Runnable restore;
+        Runnable ticker;
+        long startTime;
+        int status;
+        String header;
         ItemViews(int index, View root, LeadingView leading, TextView label) {
             this.index = index;
             this.root = root;
             this.leading = leading;
             this.label = label;
+        }
+
+        void stopFeedback() {
+            flashing = false;
+            ticker = null;
         }
     }
 }

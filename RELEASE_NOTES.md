@@ -1,3 +1,11 @@
+# Quick Actions & Clock 0.2.25
+
+- **Reel bekræftigelse & 0-20 sekunder tæller**:
+  - Ved tryk på en handling tæller pillen op fra `0 sek` til `20 sek` (`0s`–`20s` i kompakt tilstand).
+  - Viser reel bekræftelse: mens Home Assistant kaldes, er knappen blå (`Sender… 0 sek`). Når kaldet bekræftes, skifter den straks til grøn med reel status (`✓ Udført`, `✓ Tændt`, `✓ Slukket`, `✓ Startet`, `✓ Udløst` eller `✓ Aktiveret`).
+  - Hvis tilstanden ændrer sig under tælleren (f.eks. kontakt/lys tænder eller slukker), opdateres teksten dynamisk live mens tælleren fortsætter.
+  - Efter 20 sekunder gendannes pillen automatisk og glat til sin normale visning.
+
 # Quick Actions & Clock 0.2.24
 
 - **Fix: tapping a pill crashed Kiosk Satellite** (whole app closed, Android asked for a launcher). Actions used the non-existent host command haCallService; they now use the SDK's host.haCall (call_service) and declare the new ha capability. The click path is wrapped so a plugin error can never take the host process down.
